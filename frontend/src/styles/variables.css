@@ -1,0 +1,67 @@
+:root {
+  --color-ivory: #F5F0EA;
+  --color-cream: #F8F3ED;
+  --color-stone: #E7DED3;
+  --color-beige: #D6C9BA;
+
+  --color-greige: #B6AA9B;
+  --color-taupe: #A6917C;
+  --color-muted-brown: #7F6D5C;
+
+  --color-espresso: #372418;
+  --color-brown: #684A36;
+  --color-charcoal-brown: #2B211B;
+
+  --color-sage: #8F9785;
+  --color-olive: #5F6858;
+  --color-mauve: #B7A1A1;
+
+  --color-background: var(--color-ivory);
+  --color-surface: var(--color-cream);
+  --color-surface-alt: var(--color-stone);
+
+  --color-text: var(--color-espresso);
+  --color-text-soft: var(--color-muted-brown);
+  --color-muted: var(--color-taupe);
+
+  --color-primary: var(--color-espresso);
+  --color-primary-hover: var(--color-brown);
+  --color-secondary: var(--color-beige);
+  --color-border: rgba(55, 36, 24, 0.14);
+
+  --color-success: var(--color-olive);
+  --color-warning: #9C744A;
+  --color-error: #8A4B3B;
+
+  --color-on-dark: var(--color-cream);
+  --color-on-dark-soft: var(--color-beige);
+  --color-ivory-96: rgba(245, 240, 234, 0.96);
+  --color-ivory-88: rgba(245, 240, 234, 0.88);
+  --color-ivory-72: rgba(245, 240, 234, 0.72);
+  --color-ivory-34: rgba(245, 240, 234, 0.34);
+  --color-cream-glass: rgba(248, 243, 237, 0.88);
+  --color-beige-glass: rgba(214, 201, 186, 0.94);
+  --color-espresso-overlay: rgba(55, 36, 24, 0.58);
+  --color-espresso-faint: rgba(55, 36, 24, 0.08);
+  --color-cream-faint: rgba(248, 243, 237, 0.10);
+  --color-border-on-dark: rgba(248, 243, 237, 0.16);
+  --color-sage-wash: rgba(143, 151, 133, 0.22);
+  --color-error-wash: rgba(138, 75, 59, 0.14);
+  --color-warning-wash: rgba(156, 116, 74, 0.18);
+
+  --font-heading: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --font-body: "Inter", "Manrope", Arial, sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --radius-xl: 40px;
+  --radius-pill: 999px;
+
+  --shadow-soft: 0 18px 50px rgba(55, 36, 24, 0.08);
+  --shadow-card: 0 12px 35px rgba(55, 36, 24, 0.10);
+  --shadow-focus: 0 0 0 3px rgba(104, 74, 54, 0.14);
+
+  --transition: 220ms ease;
+}
+

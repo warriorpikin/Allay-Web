@@ -1,0 +1,40 @@
+{
+  "primitive": {
+    "color": {
+      "ivory": "#F5F0EA",
+      "cream": "#F8F3ED",
+      "stone": "#E7DED3",
+      "beige": "#D6C9BA",
+      "greige": "#B6AA9B",
+      "taupe": "#A6917C",
+      "muted-brown": "#7F6D5C",
+      "espresso": "#372418",
+      "brown": "#684A36",
+      "charcoal-brown": "#2B211B",
+      "sage": "#8F9785",
+      "olive": "#5F6858",
+      "mauve": "#B7A1A1"
+    },
+    "radius": { "sm": "10px", "md": "18px", "lg": "28px", "xl": "40px", "pill": "999px" },
+    "space": { "1": "4px", "2": "8px", "3": "12px", "4": "16px", "6": "24px", "8": "32px", "12": "48px", "16": "64px", "24": "96px" }
+  },
+  "semantic": {
+    "color": {
+      "background": "{primitive.color.ivory}",
+      "surface": "{primitive.color.cream}",
+      "surface-alt": "{primitive.color.stone}",
+      "primary": "{primitive.color.espresso}",
+      "primary-hover": "{primitive.color.brown}",
+      "secondary": "{primitive.color.beige}",
+      "text": "{primitive.color.espresso}",
+      "text-soft": "{primitive.color.muted-brown}",
+      "success": "{primitive.color.olive}",
+      "error": "#8A4B3B"
+    }
+  },
+  "component": {
+    "button-primary": { "background": "{semantic.color.primary}", "foreground": "{primitive.color.cream}", "radius": "{primitive.radius.pill}" },
+    "card": { "background": "{semantic.color.surface}", "radius": "{primitive.radius.lg}" },
+    "input": { "background": "{semantic.color.surface}", "border": "rgba(55, 36, 24, 0.14)", "radius": "{primitive.radius.sm}" }
+  }
+}
