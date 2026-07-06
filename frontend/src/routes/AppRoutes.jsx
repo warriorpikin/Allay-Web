@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminLayout from '../components/layout/AdminLayout'
 import PublicLayout from '../components/layout/PublicLayout'
+import AuthLayout from '../components/layout/AuthLayout'
 import AdminLogin from '../pages/admin/AdminLogin'
 import Availability from '../pages/admin/Availability'
 import BookingDetails from '../pages/admin/BookingDetails'
@@ -11,6 +12,8 @@ import Payments from '../pages/admin/Payments'
 import ServicesManager from '../pages/admin/ServicesManager'
 import Settings from '../pages/admin/Settings'
 import WaitlistManager from '../pages/admin/WaitlistManager'
+import SignIn from '../pages/auth/SignIn'
+import SignUp from '../pages/auth/SignUp'
 import About from '../pages/public/About'
 import Booking from '../pages/public/Booking'
 import BookingSuccess from '../pages/public/BookingSuccess'
@@ -37,6 +40,10 @@ export default function AppRoutes() {
 
     <Route path="waitlist" element={<Waitlist />} />
     <Route path="join-allay" element={<Navigate to="/waitlist" replace />} />
+    <Route path="auth" element={<AuthLayout />}>
+      <Route path="sign-in" element={<SignIn />} />
+      <Route path="sign-up" element={<SignUp />} />
+    </Route>
     <Route path="allay-admin/login" element={<AdminLogin />} />
     <Route element={<ProtectedRoute />}>
       <Route path="allay-admin" element={<AdminLayout />}>
@@ -54,4 +61,3 @@ export default function AppRoutes() {
     <Route path="allay-admin/overview" element={<Navigate to="/allay-admin" replace />} />
   </Routes>
 }
-

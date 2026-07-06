@@ -1,33 +1,38 @@
-import { useMemo, useState } from 'react'
-import { loginAdmin } from '../services/adminApi'
-import { AUTH_ADMIN_KEY, AUTH_TOKEN_KEY } from '../utils/constants'
+import { useEffect, useState } from 'react'
+import { getCurrentCustomer, logoutCustomer, signInCustomer, signUpCustomer } from '../services/authApi'
+import { CUSTOMER_TOKEN_KEY, CUSTOMER_USER_KEY } from '../utils/constants'
 import { AuthContext } from './auth-context'
 
-function readAdmin() {
-  try { return JSON.parse(localStorage.getItem(AUTH_ADMIN_KEY)) }
-  catch { return null }
-}
-
 export function AuthProvider({ children }) {
-  const [admin, setAdmin] = useState(readAdmin)
-  const [token, setToken] = useState(() => localStorage.getItem(AUTH_TOKEN_KEY))
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const login = async (credentials) => {
-    const data = await loginAdmin(credentials)
-    localStorage.setItem(AUTH_TOKEN_KEY, data.token)
-    localStorage.setItem(AUTH_ADMIN_KEY, JSON.stringify(data.admin))
-    setToken(data.token)
-    setAdmin(data.admin)
-    return data
+  useEffect(() => {
+    getCurrentCustomer()
+      .then((session) => { setUser(session?.user || null); setToken(session?.token || null) })
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  const persistSession = (session) => {
+    // Replace this localStorage persistence when the backend issues secure auth sessions.
+    localStorage.setItem(CUSTOMER_TOKEN_KEY, session.token)
+    localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(session.user))
+    setUser(session.user)
+    setToken(session.token)
+    return session
   }
 
-  const logout = () => {
-    localStorage.removeItem(AUTH_TOKEN_KEY)
-    localStorage.removeItem(AUTH_ADMIN_KEY)
+  const login = async (credentials) => persistSession(await signInCustomer(credentials))
+  const signup = async (details) => persistSession(await signUpCustomer(details))
+  const logout = async () => {
+    await logoutCustomer()
+    localStorage.removeItem(CUSTOMER_TOKEN_KEY)
+    localStorage.removeItem(CUSTOMER_USER_KEY)
+    setUser(null)
     setToken(null)
-    setAdmin(null)
   }
 
-  const value = useMemo(() => ({ admin, token, isAuthenticated: Boolean(token), login, logout }), [admin, token])
+  const value = { user, token, isAuthenticated: Boolean(token && user), isLoading, login, signup, logout }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

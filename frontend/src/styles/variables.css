@@ -46,6 +46,10 @@
   --color-cream-faint: rgba(248, 243, 237, 0.10);
   --color-border-on-dark: rgba(248, 243, 237, 0.16);
   --color-sage-wash: rgba(143, 151, 133, 0.22);
+  --color-sage-soft: rgba(143, 151, 133, 0.34);
+  --color-mauve-wash: rgba(183, 161, 161, 0.28);
+  --color-beige-wash: rgba(214, 201, 186, 0.48);
+  --color-stone-glass: rgba(231, 222, 211, 0.82);
   --color-error-wash: rgba(138, 75, 59, 0.14);
   --color-warning-wash: rgba(156, 116, 74, 0.18);
 
@@ -64,4 +68,3 @@
 
   --transition: 220ms ease;
 }
-
