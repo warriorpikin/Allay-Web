@@ -107,3 +107,26 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
   .admin-page-heading { flex-direction: column; }
   .admin-filters, .admin-detail-grid { grid-template-columns: 1fr; }
 }
+.admin-panel--wide { margin-bottom: 28px; }
+.admin-hours-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.admin-hour-card { padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); box-shadow: var(--shadow-soft); }
+.admin-hour-card header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.admin-hour-card header strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 25px; font-weight: 600; }
+.admin-hour-card label { display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-soft); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.admin-hour-card__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-hour-card__row + .admin-hour-card__row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-hour-card .button { margin-top: 10px; }
+.admin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.admin-list article { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); }
+.admin-list article > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.admin-list strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
+.admin-list span, .admin-list small { color: var(--color-text-soft); font-size: 10px; line-height: 1.45; }
+
+@media (max-width: 980px) {
+  .admin-hours-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .admin-hour-card__row, .admin-hour-card__row + .admin-hour-card__row { grid-template-columns: 1fr; }
+  .admin-list article { align-items: flex-start; flex-direction: column; }
+}
