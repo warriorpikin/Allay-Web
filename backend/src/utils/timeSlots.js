@@ -1,3 +1,14 @@
+const TIME_PATTERN = /^(\d{2}):(\d{2})(?::\d{2})?$/
+
+// Accepts "HH:MM" or "HH:MM:SS" and strips seconds — submitted times should never be
+// rejected just because a client included seconds. Returns null if the shape is invalid.
+export function normalizeBookingTime(time) {
+  const match = TIME_PATTERN.exec(String(time || '').trim())
+  if (!match) return null
+  const [, hours, minutes] = match
+  return `${hours}:${minutes}`
+}
+
 export function timeToMinutes(time) {
   if (!time) return 0
   const [hours, minutes] = String(time).slice(0, 5).split(':').map(Number)

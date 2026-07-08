@@ -6,6 +6,7 @@ import Brand from '../../components/common/Brand'
 import Button from '../../components/common/Button'
 import Input from '../../components/forms/Input'
 import { useAdminAuth } from '../../hooks/useAdminAuth'
+import { API_BASE_URL } from '../../services/api'
 
 export default function AdminLogin() {
   const { login, isAuthenticated } = useAdminAuth()
@@ -18,7 +19,14 @@ export default function AdminLogin() {
   const submit = async (event) => {
     event.preventDefault(); setLoading(true)
     try { await login(form); navigate(location.state?.from?.pathname || '/allay-admin', { replace: true }) }
-    catch (error) { toast.error(error.response?.data?.message || 'Unable to sign in. Check the API connection.') }
+    catch (error) {
+      const status = error.response?.status
+      console.warn('Admin login request failed', { status, code: error.code, apiBaseUrl: API_BASE_URL })
+      if (!error.response) toast.error('Cannot connect to server. Check backend URL.')
+      else if (status === 401) toast.error('Invalid admin email or password.')
+      else if (status === 404) toast.error('Admin login route was not found. Check API configuration.')
+      else toast.error(error.response?.data?.message || 'Unable to sign in. Check the API connection.')
+    }
     finally { setLoading(false) }
   }
 

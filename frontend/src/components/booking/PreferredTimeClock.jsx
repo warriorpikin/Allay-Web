@@ -56,7 +56,6 @@ export default function PreferredTimeClock({
 
   const activeSlots = useMemo(() => normalizeSlots(availableTimeSlots).filter((slot) => slot.available), [availableTimeSlots])
   const unavailableSlots = useMemo(() => normalizeSlots(fullTimeSlots).filter((slot) => !slot.available), [fullTimeSlots])
-  const activeTimeSet = useMemo(() => new Set(activeSlots.map((slot) => slot.time)), [activeSlots])
   const fullTimeSet = useMemo(() => new Set(unavailableSlots.map((slot) => slot.time)), [unavailableSlots])
   const selectedPreferredTime = toTime24(selectedHour, selectedMinute, selectedPeriod)
   const suggestedTimeSet = useMemo(() => new Set(suggestedTimes), [suggestedTimes])
@@ -84,22 +83,14 @@ export default function PreferredTimeClock({
       return
     }
 
-    if (!MINUTES.includes(minute)) {
-      raiseError('Please choose a valid 5-minute interval.')
-      return
-    }
-
+    // Any time on the dial is a valid pick — the grid of chips below only reflects a coarse
+    // sample of slots. Final availability for this exact time is confirmed by the server below.
     if (fullTimeSet.has(time)) {
-      raiseError('This time is already fully booked.')
-      return
+      raiseError('This exact time shows as full — checking final availability…')
+    } else {
+      setValidationError('')
     }
 
-    if (!activeTimeSet.has(time)) {
-      raiseError('This time is no longer available. Please choose another preferred booking time.')
-      return
-    }
-
-    setValidationError('')
     onSelect(time)
   }
 
@@ -118,13 +109,16 @@ export default function PreferredTimeClock({
     <div className="preferred-clock__panel booking-clock time-picker-clock clock-card">
       <div className="preferred-clock__face" aria-label="Preferred Booking Time clock">
         <span className="preferred-clock__halo" />
-        {HOURS.map((hour, index) => {
-          const angle = index * 30
+        {HOURS.map((hour) => {
+          const angle = (hour % 12) * 30
+          const selected = selectedHour === hour
           return <button
             key={hour}
             type="button"
-            className={`preferred-clock__hour ${selectedHour === hour ? 'is-selected' : ''}`}
+            className={`preferred-clock__hour ${selected ? 'is-selected' : ''}`}
             style={{ '--clock-angle': `${angle}deg` }}
+            aria-pressed={selected}
+            aria-label={`Select ${hour} o'clock`}
             onClick={() => validateAndSelect(hour, selectedMinute, selectedPeriod)}
           >
             {hour}
@@ -142,13 +136,39 @@ export default function PreferredTimeClock({
         <div>
           <span className="preferred-clock__label">Minute</span>
           <div className="preferred-clock__minutes minute-options minutes-grid clock-minutes">
-            {MINUTES.map((minute) => <button key={minute} type="button" className={selectedMinute === minute ? 'is-selected' : ''} onClick={() => validateAndSelect(selectedHour, minute, selectedPeriod)}>{minute}</button>)}
+            {MINUTES.map((minute) => {
+              const selected = selectedMinute === minute
+              const knownFull = fullTimeSet.has(toTime24(selectedHour, minute, selectedPeriod))
+              return <button
+                key={minute}
+                type="button"
+                className={`${selected ? 'is-selected' : ''} ${knownFull ? 'is-unavailable' : ''}`}
+                aria-pressed={selected}
+                aria-label={`Select ${minute} minutes`}
+                title={knownFull ? 'This exact time shows as full' : undefined}
+                onClick={() => validateAndSelect(selectedHour, minute, selectedPeriod)}
+              >
+                {minute}
+              </button>
+            })}
           </div>
         </div>
         <div>
           <span className="preferred-clock__label">Period</span>
           <div className="preferred-clock__periods">
-            {PERIODS.map((period) => <button key={period} type="button" className={selectedPeriod === period ? 'is-selected' : ''} onClick={() => validateAndSelect(selectedHour, selectedMinute, period)}>{period}</button>)}
+            {PERIODS.map((period) => {
+              const selected = selectedPeriod === period
+              return <button
+                key={period}
+                type="button"
+                className={selected ? 'is-selected' : ''}
+                aria-pressed={selected}
+                aria-label={`Select ${period}`}
+                onClick={() => validateAndSelect(selectedHour, selectedMinute, period)}
+              >
+                {period}
+              </button>
+            })}
           </div>
         </div>
       </div>

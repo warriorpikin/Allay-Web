@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createBookingRequest } from '../services/bookingService.js'
+import { normalizeBookingTime } from '../utils/timeSlots.js'
 
 const bookingSchema = z.object({
   customerName: z.string().trim().min(2),
@@ -11,7 +12,7 @@ const bookingSchema = z.object({
     slug: z.string().optional(),
   }).passthrough()).min(1),
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  preferredTime: z.string().regex(/^\d{2}:\d{2}$/),
+  preferredTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
   customerNote: z.string().trim().max(1000).optional().default(''),
 })
 
@@ -19,7 +20,9 @@ export async function createBooking(req, res, next) {
   try {
     const parsed = bookingSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ message: 'Enter valid booking details.' })
-    const result = await createBookingRequest(parsed.data)
+    const preferredTime = normalizeBookingTime(parsed.data.preferredTime)
+    if (!preferredTime) return res.status(400).json({ message: 'Enter a valid preferred time.' })
+    const result = await createBookingRequest({ ...parsed.data, preferredTime })
     return res.status(201).json({
       bookingReference: result.bookingReference,
       booking: result.booking,

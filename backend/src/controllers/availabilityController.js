@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { checkAvailability, getAvailabilityDays, getAvailableTimeSlots } from '../services/availabilityService.js'
+import { normalizeBookingTime } from '../utils/timeSlots.js'
 
 const daysQuerySchema = z.object({
   month: z.coerce.number().int().min(1).max(12),
@@ -16,7 +17,7 @@ const timesQuerySchema = z.object({
 
 const checkSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  preferredTime: z.string().regex(/^\d{2}:\d{2}$/),
+  preferredTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
   serviceIds: z.array(z.string()).default([]),
   totalDurationMinutes: z.coerce.number().int().positive(),
 })
@@ -52,7 +53,9 @@ export async function checkPreferredAvailability(req, res, next) {
   try {
     const parsed = checkSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ message: 'Enter a valid date, time, and service selection.' })
-    const result = await checkAvailability(parsed.data)
+    const preferredTime = normalizeBookingTime(parsed.data.preferredTime)
+    if (!preferredTime) return res.status(400).json({ message: 'Enter a valid preferred time.' })
+    const result = await checkAvailability({ ...parsed.data, preferredTime })
     return res.json(result)
   } catch (error) {
     return next(error)

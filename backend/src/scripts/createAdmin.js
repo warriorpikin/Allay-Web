@@ -6,11 +6,11 @@ import { pool, query } from '../config/database.js'
 const values = z.object({
   INITIAL_ADMIN_NAME: z.string().min(2),
   INITIAL_ADMIN_EMAIL: z.string().email(),
-  INITIAL_ADMIN_PASSWORD: z.string().min(12),
+  INITIAL_ADMIN_PASSWORD: z.string().min(8),
 }).safeParse(process.env)
 
 if (!values.success) {
-  console.error('Set INITIAL_ADMIN_NAME, INITIAL_ADMIN_EMAIL, and a 12+ character INITIAL_ADMIN_PASSWORD in backend/.env.')
+  console.error('Set INITIAL_ADMIN_NAME, INITIAL_ADMIN_EMAIL, and an 8+ character INITIAL_ADMIN_PASSWORD in backend/.env.')
   process.exit(1)
 }
 
@@ -20,12 +20,18 @@ try {
   const result = await query(
     `INSERT INTO admins (name, email, password_hash, role)
      VALUES ($1, LOWER($2), $3, 'owner')
-     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash
+     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = 'owner'
      RETURNING id, name, email, role`,
     [name, email, passwordHash],
   )
   console.log(`Admin ready: ${result.rows[0].email}`)
+} catch (error) {
+  if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code)) {
+    console.error('Cannot connect to database. Check backend/.env DATABASE_URL and make sure the database is reachable.')
+  } else {
+    console.error(error)
+  }
+  process.exitCode = 1
 } finally {
   await pool.end()
 }
-

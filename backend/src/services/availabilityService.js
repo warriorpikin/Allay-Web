@@ -1,4 +1,5 @@
 import { query } from '../config/database.js'
+import { getSetting } from './settingsService.js'
 import { addMinutesToTime, generateTimeSlots, sortSlotsByPreferredTime, timeToMinutes } from '../utils/timeSlots.js'
 
 const ACTIVE_BOOKING_STATUSES = ['pending', 'confirmed', 'completed', 'no_show']
@@ -10,6 +11,27 @@ function dayOfWeek(date) {
 
 function normalizeTime(time) {
   return String(time || '').slice(0, 5)
+}
+
+async function checkNotInPast(date, startTime) {
+  const target = new Date(`${date}T${normalizeTime(startTime)}:00.000Z`)
+  if (Number.isNaN(target.getTime())) return { available: true }
+
+  const bookingSettings = await getSetting('booking')
+  const minimumNoticeMinutes = Math.max(Number(bookingSettings?.value?.minimum_notice_minutes) || 0, 0)
+  const threshold = new Date(Date.now() + minimumNoticeMinutes * 60_000)
+
+  if (target.getTime() < threshold.getTime()) {
+    return {
+      available: false,
+      reason: 'past',
+      message: minimumNoticeMinutes > 0
+        ? `Please choose a time at least ${minimumNoticeMinutes} minutes from now.`
+        : 'This time has already passed. Please choose an upcoming time.',
+      remainingCapacity: 0,
+    }
+  }
+  return { available: true }
 }
 
 function normalizeServiceIds(serviceIds = []) {
@@ -115,6 +137,9 @@ async function getServicesCapacity(serviceIds) {
 }
 
 export async function checkSlotCapacity(date, startTime, endTime, serviceIds = []) {
+  const pastCheck = await checkNotInPast(date, startTime)
+  if (!pastCheck.available) return pastCheck
+
   const hours = await getBusinessHoursForDate(date)
   if (!hours || !hours.is_open) return { available: false, reason: 'closed', message: 'Allay House is closed on this date.', remainingCapacity: 0 }
 
@@ -130,7 +155,7 @@ export async function checkSlotCapacity(date, startTime, endTime, serviceIds = [
   }
 
   const dailyOverride = await getCapacityOverride(date, null)
-  const maxDailyBookings = dailyOverride?.time_slot == null ? Number(dailyOverride.max_bookings) : Number(hours.max_daily_bookings)
+  const maxDailyBookings = dailyOverride ? Number(dailyOverride.max_bookings) : Number(hours.max_daily_bookings)
   const dailyCount = await getDailyBookingCount(date)
   if (dailyCount >= maxDailyBookings) return { available: false, reason: 'date_full', message: 'This date is fully booked. Please select another day.', remainingCapacity: 0 }
 

@@ -18,7 +18,7 @@ export async function login(req, res, next) {
     const result = await query('SELECT id, name, email, password_hash, role FROM admins WHERE LOWER(email) = $1 LIMIT 1', [email])
     const admin = result.rows[0]
     const matches = admin ? await bcrypt.compare(parsed.data.password, admin.password_hash) : false
-    if (!matches) return res.status(401).json({ message: 'Email or password is incorrect.' })
+    if (!matches) return res.status(401).json({ message: 'Invalid admin email or password.' })
 
     const token = jwt.sign({ sub: admin.id, email: admin.email, role: admin.role }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN })
     return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } })
@@ -36,4 +36,3 @@ export async function profile(req, res, next) {
     return next(error)
   }
 }
-
