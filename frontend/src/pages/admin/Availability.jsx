@@ -30,7 +30,7 @@ export default function Availability() {
   const [blockedPeriods, setBlockedPeriods] = useState([])
   const [overrides, setOverrides] = useState([])
   const [blockForm, setBlockForm] = useState({ title: '', reason: '', startDatetime: '', endDatetime: '', blockType: 'time_range', isFullDay: false })
-  const [overrideForm, setOverrideForm] = useState({ date: '', timeSlot: '', maxBookings: 1, reason: '' })
+  const [overrideForm, setOverrideForm] = useState({ date: '', timeSlot: '', maxBookings: 7, reason: '' })
 
   const refresh = () => Promise.all([
     getBusinessHours().then((data) => setHours(data.businessHours || [])),
@@ -63,7 +63,7 @@ export default function Availability() {
     createCapacityOverride({ ...overrideForm, timeSlot: overrideForm.timeSlot || null })
       .then(() => {
         toast.success('Capacity override saved.')
-        setOverrideForm({ date: '', timeSlot: '', maxBookings: 1, reason: '' })
+        setOverrideForm({ date: '', timeSlot: '', maxBookings: 7, reason: '' })
         refresh()
       })
       .catch(() => toast.error('Could not save capacity override.'))
@@ -88,8 +88,8 @@ export default function Availability() {
           </div>
           <div className="admin-hour-card__row">
             <Input id={`daily-${item.id}`} label="Daily max" type="number" min="0" value={item.maxDailyBookings} onChange={(event) => updateHour(item.id, { maxDailyBookings: Number(event.target.value) })} />
-            <Input id={`slot-${item.id}`} label="Slot max" type="number" min="0" value={item.maxBookingsPerSlot} onChange={(event) => updateHour(item.id, { maxBookingsPerSlot: Number(event.target.value) })} />
-            <Input id={`interval-${item.id}`} label="Interval" type="number" min="5" value={item.slotIntervalMinutes} onChange={(event) => updateHour(item.id, { slotIntervalMinutes: Number(event.target.value) })} />
+            <Input id={`slot-${item.id}`} label="Slot max" type="number" min="0" value={item.maxBookingsPerSlot} onChange={(event) => updateHour(item.id, { maxBookingsPerSlot: Number(event.target.value) })} helper="Default is 7 people per same time slot." />
+            <Input id={`interval-${item.id}`} label="Interval" type="number" min="5" step="5" value={item.slotIntervalMinutes} onChange={(event) => updateHour(item.id, { slotIntervalMinutes: Number(event.target.value) })} helper="Use 5 for five-minute booking slots." />
           </div>
           <Button size="sm" onClick={() => saveHour(item)}>Save {dayNames[item.dayOfWeek]}</Button>
         </article>)}
@@ -110,7 +110,7 @@ export default function Availability() {
       <form className="admin-panel" onSubmit={submitOverride}>
         <h2>Capacity override</h2>
         <Input id="override-date" type="date" label="Date" required value={overrideForm.date} onChange={(event) => setOverrideForm({ ...overrideForm, date: event.target.value })} />
-        <Input id="override-time" type="time" label="Time slot (optional)" value={overrideForm.timeSlot} onChange={(event) => setOverrideForm({ ...overrideForm, timeSlot: event.target.value })} helper="Leave blank to override the full day." />
+        <Input id="override-time" type="time" step="300" label="Time slot (optional)" value={overrideForm.timeSlot} onChange={(event) => setOverrideForm({ ...overrideForm, timeSlot: event.target.value })} helper="Leave blank to override the full day. A capacity override changes the normal limit for a specific date/time, for example from 7 people to 2 or 0." />
         <Input id="override-max" type="number" min="0" label="Max bookings" required value={overrideForm.maxBookings} onChange={(event) => setOverrideForm({ ...overrideForm, maxBookings: Number(event.target.value) })} />
         <Textarea id="override-reason" label="Reason" value={overrideForm.reason} onChange={(event) => setOverrideForm({ ...overrideForm, reason: event.target.value })} />
         <Button type="submit">Save override</Button>

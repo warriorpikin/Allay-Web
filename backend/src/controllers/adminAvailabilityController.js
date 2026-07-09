@@ -9,7 +9,7 @@ const businessHoursSchema = z.object({
   isOpen: z.boolean(),
   maxDailyBookings: z.coerce.number().int().min(0),
   maxBookingsPerSlot: z.coerce.number().int().min(0),
-  slotIntervalMinutes: z.coerce.number().int().positive(),
+  slotIntervalMinutes: z.coerce.number().int().min(5),
 })
 
 const blockedPeriodSchema = z.object({

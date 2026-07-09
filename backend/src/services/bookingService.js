@@ -1,5 +1,6 @@
 import { pool, query } from '../config/database.js'
 import { checkAvailability } from './availabilityService.js'
+import { getPublicSiteMode } from './settingsService.js'
 import { addMinutesToTime } from '../utils/timeSlots.js'
 import { generateBookingReference } from '../utils/bookingReference.js'
 
@@ -37,6 +38,13 @@ async function findOrCreateCustomer(client, { customerName, customerEmail, custo
 }
 
 export async function createBookingRequest(payload) {
+  const siteMode = await getPublicSiteMode()
+  if (siteMode.mode !== 'live') {
+    const error = new Error('Booking is not live yet. Please join the private waitlist for launch access.')
+    error.status = 403
+    throw error
+  }
+
   const services = await resolveServices(payload.selectedServices)
   if (!services.length) {
     const error = new Error('Choose at least one active service.')

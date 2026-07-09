@@ -10,7 +10,7 @@ import { getSettings, updateSetting } from '../../services/adminApi'
 export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ businessName: '', contactEmail: '', launchMode: 'prelaunch', cancellationPolicy: '' })
+  const [form, setForm] = useState({ businessName: '', contactEmail: '', launchMode: 'prelaunch', waitlistEnabled: true, cancellationPolicy: '' })
 
   useEffect(() => {
     getSettings()
@@ -21,6 +21,7 @@ export default function Settings() {
           businessName: business.name || 'Allay House',
           contactEmail: business.contactEmail || '',
           launchMode: launch.mode === 'live' ? 'live' : 'prelaunch',
+          waitlistEnabled: launch.waitlist_enabled !== false,
           cancellationPolicy: business.cancellationPolicy || '',
         })
       })
@@ -40,7 +41,7 @@ export default function Settings() {
           ...(form.contactEmail ? { contactEmail: form.contactEmail } : {}),
           cancellationPolicy: form.cancellationPolicy,
         }),
-        updateSetting('launch', { mode: form.launchMode }),
+        updateSetting('launch', { mode: form.launchMode, waitlist_enabled: form.waitlistEnabled }),
       ])
       toast.success(`Settings saved. Site is now in ${form.launchMode === 'live' ? 'live' : 'pre-launch'} mode.`)
     } catch {
@@ -67,6 +68,13 @@ export default function Settings() {
         options={[{ value: 'prelaunch', label: 'Pre-launch' }, { value: 'live', label: 'Live' }]}
         helper={form.launchMode === 'live' ? 'Booking is the primary public CTA. Pre-launch copy is hidden.' : 'Waitlist is the primary public CTA. Booking remains reachable.'}
       />
+      <label className="admin-toggle-row">
+        <input type="checkbox" checked={form.waitlistEnabled} onChange={(event) => setForm((current) => ({ ...current, waitlistEnabled: event.target.checked }))} />
+        <span>
+          <strong>Keep private waitlist open</strong>
+          <small>When off, the public waitlist URL shows a polite closed message and signups are rejected by the API.</small>
+        </span>
+      </label>
       <Textarea id="cancellation-policy" label="Cancellation policy" value={form.cancellationPolicy} onChange={update('cancellationPolicy')} placeholder="Describe your cancellation policy." />
       <Button type="submit" loading={saving}>Save settings</Button>
     </form>

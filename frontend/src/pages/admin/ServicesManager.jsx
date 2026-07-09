@@ -1,9 +1,229 @@
-import Button from '../../components/common/Button'
+import { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import Badge from '../../components/common/Badge'
-import { placeholderServices } from '../../data/placeholderServices'
+import Button from '../../components/common/Button'
+import EmptyState from '../../components/common/EmptyState'
+import Loader from '../../components/common/Loader'
+import Modal from '../../components/common/Modal'
+import Input from '../../components/forms/Input'
+import Select from '../../components/forms/Select'
+import Textarea from '../../components/forms/Textarea'
+import {
+  createAdminService,
+  deleteAdminService,
+  getAdminServiceCategories,
+  getAdminServices,
+  updateAdminService,
+} from '../../services/adminApi'
 import { formatCurrency } from '../../utils/formatCurrency'
 
-export default function ServicesManager() {
-  return <><div className="admin-page-heading"><div><span className="eyebrow">Service menu</span><h1>Services</h1><p>Pricing remains placeholder data until the Services API is connected.</p></div><Button>Add service</Button></div><section className="admin-panel"><div className="table-wrap"><table><thead><tr><th>Service</th><th>Category</th><th>Duration</th><th>Price</th><th>Status</th></tr></thead><tbody>{placeholderServices.slice(0, 6).map((service) => <tr key={service.id}><td>{service.name}</td><td>{service.category}</td><td>{service.durationMinutes} mins</td><td>{formatCurrency(service.price)}</td><td><Badge status="paid">Active</Badge></td></tr>)}</tbody></table></div></section></>
+const emptyForm = {
+  categoryId: '',
+  name: '',
+  slug: '',
+  description: '',
+  durationMinutes: 60,
+  price: 0,
+  imageUrl: '',
+  isActive: true,
+  isDiscountEligible: true,
+  simultaneousCapacity: 7,
+  displayOrder: 0,
 }
 
+function serviceToForm(service) {
+  return {
+    categoryId: service.categoryId || '',
+    name: service.name || '',
+    slug: service.slug || '',
+    description: service.description || '',
+    durationMinutes: service.durationMinutes || 60,
+    price: service.price || 0,
+    imageUrl: service.imageUrl || service.localImagePath || '',
+    isActive: Boolean(service.isActive),
+    isDiscountEligible: Boolean(service.isDiscountEligible),
+    simultaneousCapacity: service.simultaneousCapacity || 7,
+    displayOrder: service.displayOrder || 0,
+  }
+}
+
+function readImageUpload(file) {
+  if (!file) return Promise.resolve(null)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const encoded = String(reader.result || '').split(',')[1]
+      resolve({ filename: file.name, mimeType: file.type, data: encoded })
+    }
+    reader.onerror = () => reject(new Error('Could not read image.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+export default function ServicesManager() {
+  const [services, setServices] = useState([])
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingService, setEditingService] = useState(null)
+  const [form, setForm] = useState(emptyForm)
+  const [imageFile, setImageFile] = useState(null)
+
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ value: category.id, label: `${category.name}${category.isActive ? '' : ' (inactive)'}` })),
+    [categories],
+  )
+
+  const refresh = () => {
+    setLoading(true)
+    Promise.all([getAdminServices(), getAdminServiceCategories()])
+      .then(([serviceData, categoryData]) => {
+        setServices(serviceData.services || [])
+        setCategories(categoryData.categories || [])
+      })
+      .catch(() => toast.error('Could not load services.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { refresh() }, [])
+
+  const openCreate = () => {
+    setEditingService(null)
+    setForm(emptyForm)
+    setImageFile(null)
+    setFormOpen(true)
+  }
+
+  const openEdit = (service) => {
+    setEditingService(service)
+    setForm(serviceToForm(service))
+    setImageFile(null)
+    setFormOpen(true)
+  }
+
+  const closeModal = () => {
+    if (saving) return
+    setFormOpen(false)
+    setEditingService(null)
+    setForm(emptyForm)
+    setImageFile(null)
+  }
+
+  const update = (field) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
+    setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const save = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      const imageUpload = await readImageUpload(imageFile)
+      const payload = {
+        ...form,
+        durationMinutes: Number(form.durationMinutes),
+        price: Number(form.price),
+        simultaneousCapacity: Number(form.simultaneousCapacity),
+        displayOrder: Number(form.displayOrder),
+        imageUpload,
+      }
+      if (editingService) {
+        await updateAdminService(editingService.id, payload)
+        toast.success('Service updated.')
+      } else {
+        await createAdminService(payload)
+        toast.success('Service added.')
+      }
+      setFormOpen(false)
+      setEditingService(null)
+      setForm(emptyForm)
+      setImageFile(null)
+      refresh()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not save service.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const remove = async (service) => {
+    if (!window.confirm(`Remove ${service.name}? Services with booking history will be set inactive instead.`)) return
+    try {
+      await deleteAdminService(service.id)
+      toast.success('Service removed or set inactive.')
+      refresh()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not remove service.')
+    }
+  }
+
+  return <>
+    <div className="admin-page-heading">
+      <div>
+        <span className="eyebrow">Service menu</span>
+        <h1>Services</h1>
+        <p>Add, edit, hide, price, and capacity-control the treatments customers can choose.</p>
+      </div>
+      <Button onClick={openCreate}>Add service</Button>
+    </div>
+
+    <section className="admin-panel">
+      {loading ? <Loader label="Loading services" /> : !services.length ? <EmptyState title="No services yet" message="Create the first Allay House service for the public menu." action={<Button onClick={openCreate}>Add service</Button>} /> : <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Category</th>
+              <th>Duration</th>
+              <th>Price</th>
+              <th>Capacity</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {services.map((service) => <tr key={service.id}>
+              <td><span className="admin-service-name">{service.name}<small>{service.slug}</small></span></td>
+              <td>{service.category}</td>
+              <td>{service.durationMinutes} mins</td>
+              <td>{formatCurrency(service.price)}</td>
+              <td>{service.simultaneousCapacity || 7}</td>
+              <td><Badge status={service.isActive ? 'paid' : 'cancelled'}>{service.isActive ? 'Active' : 'Inactive'}</Badge></td>
+              <td><span className="admin-row-actions"><Button size="sm" variant="outline" onClick={() => openEdit(service)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(service)}>Delete</Button></span></td>
+            </tr>)}
+          </tbody>
+        </table>
+      </div>}
+    </section>
+
+    <Modal open={formOpen} onClose={closeModal} title={editingService ? 'Edit service' : 'Add service'}>
+      <form className="admin-service-form" onSubmit={save}>
+        <Select id="service-category" label="Category" required options={categoryOptions} value={form.categoryId} onChange={update('categoryId')} />
+        <Input id="service-name" label="Name" required value={form.name} onChange={update('name')} />
+        <Input id="service-slug" label="Slug" value={form.slug} onChange={update('slug')} helper="Leave blank on new services to generate one from the name." />
+        <Textarea id="service-description" label="Description" rows={3} value={form.description} onChange={update('description')} />
+        <div className="admin-form-grid">
+          <Input id="service-duration" label="Duration" type="number" min="5" step="5" required value={form.durationMinutes} onChange={update('durationMinutes')} />
+          <Input id="service-price" label="Price" type="number" min="0" step="100" required value={form.price} onChange={update('price')} />
+          <Input id="service-capacity" label="Same-time capacity" type="number" min="1" required value={form.simultaneousCapacity} onChange={update('simultaneousCapacity')} />
+          <Input id="service-order" label="Display order" type="number" min="0" value={form.displayOrder} onChange={update('displayOrder')} />
+        </div>
+        <Input id="service-image-url" label="Image URL or local path" value={form.imageUrl} onChange={update('imageUrl')} placeholder="/images/allay/services/service.jpg" />
+        <label className="admin-file-control" htmlFor="service-image-file">
+          <span>Upload local image</span>
+          <input id="service-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />
+          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 2.5MB.'}</small>
+        </label>
+        <div className="admin-toggle-pair">
+          <label><input type="checkbox" checked={form.isActive} onChange={update('isActive')} /> Active on public menu</label>
+          <label><input type="checkbox" checked={form.isDiscountEligible} onChange={update('isDiscountEligible')} /> Coupon eligible</label>
+        </div>
+        <div className="admin-modal-actions">
+          <Button type="button" variant="secondary" onClick={closeModal} disabled={saving}>Cancel</Button>
+          <Button type="submit" loading={saving}>{editingService ? 'Save service' : 'Create service'}</Button>
+        </div>
+      </form>
+    </Modal>
+  </>
+}

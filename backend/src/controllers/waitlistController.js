@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { joinWaitlist, listWaitlistEntries } from '../services/waitlistService.js'
+import { joinWaitlist, listWaitlistEntries, sendCouponEmailsToWaitlist } from '../services/waitlistService.js'
 
 const waitlistSchema = z.object({
   email: z.string().trim().email(),
@@ -33,6 +33,16 @@ export async function listWaitlist(req, res, next) {
   try {
     const entries = await listWaitlistEntries()
     return res.json({ waitlist: entries })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function sendWaitlistCoupons(req, res, next) {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : []
+    const result = await sendCouponEmailsToWaitlist({ ids })
+    return res.json({ message: 'Coupon email run completed.', ...result })
   } catch (error) {
     return next(error)
   }

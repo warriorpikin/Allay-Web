@@ -9,6 +9,7 @@ import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
 import { backgroundImages } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
+import { useSiteMode } from '../../hooks/useSiteMode'
 import { getServices } from '../../services/servicesApi'
 import { joinWaitlist } from '../../services/waitlistApi'
 
@@ -17,6 +18,7 @@ function WaitlistHeader() {
 }
 
 export default function Waitlist() {
+  const { waitlistEnabled, isLoading: siteModeLoading } = useSiteMode()
   const [services, setServices] = useState(placeholderServices)
   const [selected, setSelected] = useState([])
   const [submitted, setSubmitted] = useState(false)
@@ -58,7 +60,9 @@ export default function Waitlist() {
 
   return <main className="waitlist-page" style={backgroundStyle}>
     <WaitlistHeader />
-    {submitted
+    {!siteModeLoading && !waitlistEnabled
+      ? <section className="waitlist-success"><span><Check /></span><small className="eyebrow">Waitlist closed</small><h1>Our private waitlist is currently closed.</h1><p>Please watch out for future openings.</p><Button to="/">Return to Allay House</Button></section>
+      : submitted
       ? <section className="waitlist-success"><span><Check /></span><small className="eyebrow">You are on the list</small><h1>Your place is held.</h1><p>We will write to <strong>{form.email}</strong> with private opening news for your selected Allay experiences.</p><Button to="/">Return to Allay House</Button></section>
       : <section className="waitlist-page__card">
           <span className="eyebrow">Private opening access</span>

@@ -1,17 +1,21 @@
 import { Check } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import AvailabilityNotice from '../../components/booking/AvailabilityNotice'
 import BookingCalendar from '../../components/booking/BookingCalendar'
 import BookingSummary from '../../components/booking/BookingSummary'
 import PreferredTimeClock from '../../components/booking/PreferredTimeClock'
 import ServiceMultiSelect from '../../components/booking/ServiceMultiSelect'
+import Button from '../../components/common/Button'
+import Loader from '../../components/common/Loader'
 import SectionHeader from '../../components/common/SectionHeader'
 import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
 import { placeholderServices } from '../../data/placeholderServices'
+import { useAuth } from '../../hooks/useAuth'
 import { useBooking } from '../../hooks/useBooking'
+import { useSiteMode } from '../../hooks/useSiteMode'
 import { checkAvailability, getAvailabilityDays, getAvailabilityTimes } from '../../services/availabilityApi'
 import { createBooking } from '../../services/bookingApi'
 import { getServices } from '../../services/servicesApi'
@@ -26,7 +30,10 @@ function serviceQuery(services) {
 
 export default function Booking() {
   const { booking, updateBooking } = useBooking()
+  const { isLive, isLoading: siteModeLoading } = useSiteMode()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const requestedSlug = searchParams.get('service')
   const [services, setServices] = useState(placeholderServices)
@@ -50,6 +57,17 @@ export default function Booking() {
       })
       .catch(() => setServices(placeholderServices))
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    updateBooking({
+      customer: {
+        fullName: booking.customer.fullName || user.fullName || '',
+        email: booking.customer.email || user.email || '',
+        phone: booking.customer.phone || user.phone || '',
+      },
+    })
+  }, [user, booking.customer.fullName, booking.customer.email, booking.customer.phone, updateBooking])
 
   useEffect(() => {
     const requested = services.find((service) => service.slug === requestedSlug)
@@ -145,6 +163,25 @@ export default function Booking() {
         }
       })
       .finally(() => setSubmitting(false))
+  }
+
+  if (siteModeLoading || authLoading) return <Loader label="Opening the Allay booking diary" />
+
+  if (!isLive) {
+    return <section className="booking-disabled section compact">
+      <span className="eyebrow">Booking is not live yet</span>
+      <h1>Private bookings open soon.</h1>
+      <p>Allay House is currently in pre-launch mode, so appointments cannot be booked yet. Join the private waitlist for launch access and service updates.</p>
+      <div className="hero__actions">
+        <Button to="/waitlist">Join the private waitlist</Button>
+        <Link className="text-link" to="/services">Explore services</Link>
+      </div>
+    </section>
+  }
+
+  if (!isAuthenticated) {
+    const redirect = encodeURIComponent(`${location.pathname}${location.search}`)
+    return <Navigate to={`/auth/sign-up?redirect=${redirect}`} replace />
   }
 
   return <>

@@ -2,11 +2,20 @@ import { query } from '../config/database.js'
 import { env } from '../config/env.js'
 
 async function logEmail({ recipient, subject, emailType, status, errorMessage = null, relatedWaitlistId = null, relatedBookingId = null }) {
-  await query(
-    `INSERT INTO email_logs (recipient, subject, email_type, status, error_message, related_booking_id, related_waitlist_id, sent_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [recipient, subject, emailType, status, errorMessage, relatedBookingId, relatedWaitlistId, status === 'sent' ? new Date() : null],
-  )
+  try {
+    await query(
+      `INSERT INTO email_logs (recipient, subject, email_type, status, error_message, related_booking_id, related_waitlist_id, sent_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [recipient, subject, emailType, status, errorMessage, relatedBookingId, relatedWaitlistId, status === 'sent' ? new Date() : null],
+    )
+  } catch (error) {
+    if (status !== 'skipped') throw error
+    await query(
+      `INSERT INTO email_logs (recipient, subject, email_type, status, error_message, related_booking_id, related_waitlist_id, sent_at)
+       VALUES ($1, $2, $3, 'queued', $4, $5, $6, NULL)`,
+      [recipient, subject, emailType, errorMessage || error.message, relatedBookingId, relatedWaitlistId],
+    )
+  }
 }
 
 async function sendViaResend({ to, subject, html }) {
@@ -27,7 +36,7 @@ async function sendViaResend({ to, subject, html }) {
 export async function sendEmail({ to, subject, html, emailType, relatedWaitlistId = null, relatedBookingId = null }) {
   if (!env.RESEND_API_KEY) {
     console.info(`[email] RESEND_API_KEY not configured — would send "${subject}" to ${to}`)
-    await logEmail({ recipient: to, subject, emailType, status: 'queued', errorMessage: 'RESEND_API_KEY not configured', relatedWaitlistId, relatedBookingId })
+    await logEmail({ recipient: to, subject, emailType, status: 'skipped', errorMessage: 'RESEND_API_KEY not configured', relatedWaitlistId, relatedBookingId })
     return { sent: false }
   }
 
@@ -59,12 +68,13 @@ function waitlistConfirmationHtml({ services }) {
   `
 }
 
-export async function sendWaitlistConfirmationEmail({ email, services = [] }) {
+export async function sendWaitlistConfirmationEmail({ email, services = [], relatedWaitlistId = null }) {
   return sendEmail({
     to: email,
     subject: 'You are on the Allay House waitlist',
     html: waitlistConfirmationHtml({ services }),
     emailType: 'waitlist_confirmation',
+    relatedWaitlistId,
   })
 }
 
@@ -85,7 +95,7 @@ function launchCouponHtml({ couponCode, discountType, discountValue }) {
 
 // Not triggered automatically anywhere — call this manually (e.g. one-off admin script or a future
 // admin "send launch email" action) once launch mode goes live, to avoid an accidental mass-send.
-export async function sendLaunchCouponEmail({ email }) {
+export async function sendLaunchCouponEmail({ email, relatedWaitlistId = null }) {
   return sendEmail({
     to: email,
     subject: 'Allay House is open — your early access offer',
@@ -95,5 +105,6 @@ export async function sendLaunchCouponEmail({ email }) {
       discountValue: env.WAITLIST_LAUNCH_DISCOUNT_VALUE,
     }),
     emailType: 'waitlist_launch_offer',
+    relatedWaitlistId,
   })
 }

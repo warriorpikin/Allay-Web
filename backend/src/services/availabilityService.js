@@ -130,7 +130,7 @@ async function getServicesCapacity(serviceIds) {
   const ids = normalizeServiceIds(serviceIds)
   if (!ids.length) return []
   const result = await query(
-    'SELECT id, name, COALESCE(simultaneous_capacity, 999999)::int AS simultaneous_capacity FROM services WHERE id = ANY($1::uuid[]) AND is_active = TRUE',
+    'SELECT id, name, COALESCE(simultaneous_capacity, 7)::int AS simultaneous_capacity FROM services WHERE id = ANY($1::uuid[]) AND is_active = TRUE',
     [ids],
   )
   return result.rows
@@ -200,7 +200,7 @@ export async function getAvailableTimeSlots(date, serviceIds = [], durationMinut
   return checked
 }
 
-export async function suggestAvailableTimes(date, preferredTime, serviceIds = [], durationMinutes = 30, limit = 4) {
+export async function suggestAvailableTimes(date, preferredTime, serviceIds = [], durationMinutes = 30, limit = 3) {
   const slots = await getAvailableTimeSlots(date, serviceIds, durationMinutes)
   return sortSlotsByPreferredTime(slots.filter((slot) => slot.available && slot.time !== normalizeTime(preferredTime)), preferredTime)
     .slice(0, limit)

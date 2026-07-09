@@ -8,13 +8,16 @@ import adminAuthRoutes from './routes/adminAuthRoutes.js'
 import adminAvailabilityRoutes from './routes/adminAvailabilityRoutes.js'
 import adminBookingRoutes from './routes/adminBookingRoutes.js'
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
+import adminServiceRoutes from './routes/adminServiceRoutes.js'
 import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
+import adminTestimonialRoutes from './routes/adminTestimonialRoutes.js'
 import adminWaitlistRoutes from './routes/adminWaitlistRoutes.js'
 import availabilityRoutes from './routes/availabilityRoutes.js'
 import bookingRoutes from './routes/bookingRoutes.js'
 import contactRoutes from './routes/contactRoutes.js'
 import serviceRoutes from './routes/serviceRoutes.js'
 import settingsRoutes from './routes/settingsRoutes.js'
+import testimonialRoutes from './routes/testimonialRoutes.js'
 import waitlistRoutes from './routes/waitlistRoutes.js'
 
 const app = express()
@@ -33,7 +36,7 @@ app.use(cors({
   },
   credentials: true,
 }))
-app.use(express.json({ limit: '100kb' }))
+app.use(express.json({ limit: '4mb' }))
 
 app.get('/api/health', async (req, res, next) => {
   try {
@@ -48,12 +51,15 @@ app.use('/api/admin/auth', adminAuthRoutes)
 app.use('/api/admin/availability', adminAvailabilityRoutes)
 app.use('/api/admin/bookings', adminBookingRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)
+app.use('/api/admin/services', adminServiceRoutes)
 app.use('/api/admin/settings', adminSettingsRoutes)
+app.use('/api/admin/testimonials', adminTestimonialRoutes)
 app.use('/api/admin/waitlist', adminWaitlistRoutes)
 app.use('/api/availability', availabilityRoutes)
 app.use('/api/bookings', bookingRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api', testimonialRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api', serviceRoutes)
 app.use(notFound)

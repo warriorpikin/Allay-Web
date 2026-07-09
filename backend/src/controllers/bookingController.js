@@ -29,6 +29,7 @@ export async function createBooking(req, res, next) {
       services: result.services,
     })
   } catch (error) {
+    if (error.status === 403) return res.status(403).json({ message: error.message })
     if (error.status === 409) return res.status(409).json({ message: error.message, reason: error.reason, suggestedTimes: error.suggestedTimes || [] })
     return next(error)
   }

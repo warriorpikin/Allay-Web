@@ -1,5 +1,6 @@
 import { query } from '../config/database.js'
-import { sendWaitlistConfirmationEmail } from './emailService.js'
+import { sendLaunchCouponEmail, sendWaitlistConfirmationEmail } from './emailService.js'
+import { getPublicSiteMode } from './settingsService.js'
 
 function candidateIdentifiers(selectedServices = []) {
   const values = selectedServices.flatMap((service) =>
@@ -22,6 +23,13 @@ async function resolveServices(selectedServices = []) {
 }
 
 export async function joinWaitlist({ email, selectedServices = [], fullName, phone, note }) {
+  const siteMode = await getPublicSiteMode()
+  if (siteMode.waitlistEnabled === false) {
+    const error = new Error('Our private waitlist is currently closed. Please watch out for future openings.')
+    error.status = 403
+    throw error
+  }
+
   const services = await resolveServices(selectedServices)
   if (!services.length) {
     const error = new Error('Choose at least one active service.')
@@ -54,7 +62,7 @@ export async function joinWaitlist({ email, selectedServices = [], fullName, pho
     )
   }
 
-  await sendWaitlistConfirmationEmail({ email: entry.email, services })
+  await sendWaitlistConfirmationEmail({ email: entry.email, services, relatedWaitlistId: entry.id })
 
   return { entry, services }
 }
@@ -72,4 +80,29 @@ export async function listWaitlistEntries() {
      LIMIT 500`,
   )
   return entries.rows
+}
+
+export async function sendCouponEmailsToWaitlist({ ids = [] } = {}) {
+  const hasIds = Array.isArray(ids) && ids.length > 0
+  const result = await query(
+    `SELECT id, email
+     FROM waitlist_entries
+     WHERE status = 'active'
+       AND ($1::boolean = FALSE OR id = ANY($2::uuid[]))
+     ORDER BY created_at ASC`,
+    [hasIds, hasIds ? ids : []],
+  )
+
+  const results = []
+  for (const entry of result.rows) {
+    const emailResult = await sendLaunchCouponEmail({ email: entry.email, relatedWaitlistId: entry.id })
+    results.push({ id: entry.id, email: entry.email, sent: emailResult.sent })
+  }
+
+  return {
+    total: result.rows.length,
+    sent: results.filter((item) => item.sent).length,
+    skippedOrFailed: results.filter((item) => !item.sent).length,
+    results,
+  }
 }
