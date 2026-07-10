@@ -27,7 +27,7 @@
 .section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 50px; }
 .section-heading h2 { font-size: clamp(44px, 4.5vw, 68px); margin: 0; }
 .division-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-.division-card { min-height: 390px; padding: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); display: flex; flex-direction: column; position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(55, 36, 24, 0.18), rgba(55, 36, 24, 0.72)), url('/images/allay-house-hero.png') center/cover; box-shadow: var(--shadow-card); color: var(--color-on-dark); transition: transform var(--transition), box-shadow var(--transition); }
+.division-card { min-height: 390px; padding: 28px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); display: flex; flex-direction: column; position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(55, 36, 24, 0.18), rgba(55, 36, 24, 0.72)), var(--card-image, none) center/cover; box-shadow: var(--shadow-card); color: var(--color-on-dark); transition: transform var(--transition), box-shadow var(--transition); }
 .division-card::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(248, 243, 237, 0.08), rgba(55, 36, 24, 0.55)); transition: opacity var(--transition); }
 .division-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-soft); }
 .division-card:hover::before { opacity: 0.58; }
@@ -37,10 +37,7 @@
 .division-card h3 { margin: 0 0 12px; color: var(--color-on-dark); font-size: 31px; line-height: 1; }
 .division-card p { margin: 0; color: rgba(255, 255, 255, 0.82); font-size: 10px; line-height: 1.6; letter-spacing: 0.12em; text-transform: uppercase; }
 .division-card__arrow { position: absolute; right: 27px; bottom: 30px; }
-.division-card--stone { background: var(--color-stone); }
-.division-card--beige { background: var(--color-beige); }
-.division-card--taupe { background: var(--color-greige); }
-.division-card--cream { background: var(--color-cream); }
+.division-card--stone, .division-card--beige, .division-card--taupe, .division-card--cream { background: linear-gradient(180deg, rgba(55, 36, 24, 0.18), rgba(55, 36, 24, 0.72)), var(--card-image, none) center/cover; }
 
 .ritual { display: grid; grid-template-columns: 0.85fr 1fr; align-items: center; gap: clamp(60px, 10vw, 160px); background: var(--color-surface); }
 .ritual__arch { aspect-ratio: 0.74; overflow: hidden; border-radius: 50% 50% var(--radius-lg) var(--radius-lg); background: var(--color-beige); box-shadow: var(--shadow-soft); }
@@ -70,7 +67,7 @@
 .phase-note { padding: 20px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-sm); color: var(--color-text-soft); font-size: 12px; }
 .phase-note--wide { max-width: 700px; margin: 50px auto 110px; text-align: center; }
 
-.waitlist-page { min-height: 100vh; padding: 45px; display: grid; place-items: center; background: linear-gradient(var(--color-ivory-72), var(--color-ivory-88)), url('/images/allay-house-hero.png') center/cover; }
+.waitlist-page { min-height: 100vh; padding: 45px; display: grid; place-items: center; background: linear-gradient(var(--color-ivory-72), var(--color-ivory-88)), var(--waitlist-page-image, none) center/cover; }
 .waitlist-page__top { position: absolute; left: 45px; right: 45px; top: 34px; display: flex; align-items: center; justify-content: space-between; }
 .waitlist-page__nav { display: flex; align-items: center; gap: 20px; }
 .waitlist-page__nav > span { color: var(--color-text-soft); font-size: 10px; }
@@ -100,7 +97,7 @@
 .waitlist-success > span { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 28px; border-radius: 50%; background: var(--color-sage-wash); color: var(--color-success); }
 .waitlist-success p { margin-bottom: 28px; }
 
-.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 100px 24px 55px; background: linear-gradient(var(--color-ivory-88), var(--color-ivory-96)), url('/images/allay-house-hero.png') center/cover; }
+.auth-page { min-height: 100vh; display: grid; place-items: center; padding: 100px 24px 55px; background: linear-gradient(var(--color-ivory-88), var(--color-ivory-96)), var(--auth-page-image, none) center/cover; }
 .auth-page__header { position: absolute; left: clamp(24px, 5vw, 70px); right: clamp(24px, 5vw, 70px); top: 34px; display: flex; align-items: center; justify-content: space-between; }
 .auth-page__header > a:last-child { color: var(--color-text-soft); font-size: 10px; letter-spacing: 0.06em; }
 .auth-card { width: min(500px, 100%); padding: clamp(36px, 6vw, 60px); border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-cream-glass); box-shadow: var(--shadow-card); }
@@ -195,11 +192,11 @@
 
 .category-showcase { padding-top: 65px; padding-bottom: 65px; background: var(--color-background); }
 .category-showcase__track { display: grid; grid-template-columns: repeat(6, minmax(190px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
-.category-card { min-height: 245px; display: flex; flex-direction: column; padding: 23px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: linear-gradient(180deg, rgba(55, 36, 24, 0.18), rgba(55, 36, 24, 0.62)), url('/images/allay-house-hero.png') center/cover; color: var(--color-on-dark); box-shadow: var(--shadow-soft); cursor: pointer; position: relative; overflow: hidden; text-align: left; transition: transform var(--transition), box-shadow var(--transition), filter var(--transition); }
+.category-card { min-height: 245px; display: flex; flex-direction: column; padding: 23px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: linear-gradient(180deg, rgba(55, 36, 24, 0.18), rgba(55, 36, 24, 0.62)), var(--card-image, none) center/cover; color: var(--color-on-dark); box-shadow: var(--shadow-soft); cursor: pointer; position: relative; overflow: hidden; text-align: left; transition: transform var(--transition), box-shadow var(--transition), filter var(--transition); }
 .category-card:hover, .category-card.is-active { transform: translateY(-3px); box-shadow: var(--shadow-card); filter: saturate(1.04); }
-.category-card--0, .category-card--3 { background: linear-gradient(180deg, rgba(55, 36, 24, 0.14), rgba(55, 36, 24, 0.64)), url('/images/allay-house-hero.png') center/cover; }
-.category-card--1, .category-card--4 { background: linear-gradient(180deg, rgba(91, 68, 85, 0.14), rgba(55, 36, 24, 0.64)), url('/images/allay-house-hero.png') center/cover; }
-.category-card--2, .category-card--5, .category-card--all { background: linear-gradient(180deg, rgba(94, 85, 70, 0.12), rgba(55, 36, 24, 0.64)), url('/images/allay-house-hero.png') center/cover; }
+.category-card--0, .category-card--3 { background: linear-gradient(180deg, rgba(55, 36, 24, 0.14), rgba(55, 36, 24, 0.64)), var(--card-image, none) center/cover; }
+.category-card--1, .category-card--4 { background: linear-gradient(180deg, rgba(91, 68, 85, 0.14), rgba(55, 36, 24, 0.64)), var(--card-image, none) center/cover; }
+.category-card--2, .category-card--5, .category-card--all { background: linear-gradient(180deg, rgba(94, 85, 70, 0.12), rgba(55, 36, 24, 0.64)), var(--card-image, none) center/cover; }
 .category-card > span { color: rgba(255, 255, 255, 0.74); font-size: 9px; letter-spacing: 0.12em; }
 .category-card > svg { margin: auto 0 24px; color: var(--color-on-dark); }
 .category-card h3 { margin-bottom: 9px; color: var(--color-on-dark); font-size: 25px; line-height: 1; }
@@ -210,7 +207,7 @@
 .service-card__actions .button { min-height: 38px; }
 .selected-services-note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); color: var(--color-text-soft); font-size: 12px; line-height: 1.55; }
 .selected-services-note strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 20px; font-weight: 600; }
-.booking-disabled { min-height: 60vh; display: grid; align-content: center; justify-items: start; }
+.booking-disabled { min-height: 60vh; display: grid; align-content: center; justify-items: start; background: linear-gradient(var(--color-ivory-88), var(--color-ivory-96)), var(--booking-page-image, none) center/cover; }
 .booking-disabled h1 { max-width: 680px; margin-bottom: 16px; font-size: clamp(48px, 6vw, 80px); line-height: 0.95; }
 .booking-disabled p { max-width: 620px; }
 .testimonials { background: var(--color-background); }

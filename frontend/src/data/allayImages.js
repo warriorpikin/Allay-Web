@@ -1,33 +1,75 @@
-// Drop image files into src/assets/allay/{hero,services,backgrounds}/ and they appear here
-// automatically, keyed by filename (without extension). Missing files simply resolve to
-// `undefined` so ImagePlaceholder falls back to its gradient art — nothing breaks.
-const heroModules = import.meta.glob('../assets/allay/hero/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' })
-const serviceModules = import.meta.glob('../assets/allay/services/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' })
-const backgroundModules = import.meta.glob('../assets/allay/backgrounds/*.{jpg,jpeg,png,webp}', { eager: true, import: 'default' })
+import { imagePaths } from '../utils/imagePaths'
 
-function keyByFilename(modules) {
-  const map = {}
-  for (const [path, url] of Object.entries(modules)) {
-    const filename = path.split('/').pop().replace(/\.[^.]+$/, '')
-    map[filename] = url
-  }
-  return map
+const serviceImagesBySlug = {
+  'swedish-massage': imagePaths.services.swedishMassage,
+  'deep-tissue-massage': imagePaths.services.deepTissueMassage,
+  'aromatherapy-massage': imagePaths.services.aromatherapyMassage,
+  'signature-glow-facial': imagePaths.services.glowFacial,
+  'classic-facial': imagePaths.services.classicFacial,
+  'hydrating-facial': imagePaths.services.hydratingFacial,
+  'glow-facial': imagePaths.services.glowFacial,
+  'sauna-session': imagePaths.services.saunaSession,
+  'headspa-ritual': imagePaths.services.headspaTreatment,
+  'headspa-treatment': imagePaths.services.headspaTreatment,
+  'classic-manicure': imagePaths.services.classicManicure,
+  'classic-pedicure': imagePaths.services.classicPedicure,
+  'gel-polish': imagePaths.services.gelPolish,
+  'nail-art': imagePaths.services.nailArt,
+  'lash-extensions': imagePaths.services.lashExtensions,
+  'lash-lift': imagePaths.services.lashLift,
+  'lash-lift-tint': imagePaths.services.lashLift,
+  'brow-shaping': imagePaths.services.browShaping,
+  'brow-shaping-tint': imagePaths.services.browShaping,
+  'hair-styling': imagePaths.services.hairStyling,
+  braiding: imagePaths.services.hairBraiding,
+  'hair-braiding': imagePaths.services.hairBraiding,
+  'wig-installation': imagePaths.services.wigInstallation,
+  'wig-styling': imagePaths.services.wigStyling,
+  'premium-human-hair-wig-consultation': imagePaths.services.wigStyling,
+  'private-pilates': imagePaths.services.privatePilates,
+  'pilates-class': imagePaths.services.groupPilates,
+  'group-pilates': imagePaths.services.groupPilates,
 }
 
-const heroImagesByFilename = keyByFilename(heroModules)
-const serviceImagesByFilename = keyByFilename(serviceModules)
-const backgroundImagesByFilename = keyByFilename(backgroundModules)
+const categoryImagesBySlug = {
+  all: imagePaths.placeholders.category,
+  'allay-spa': imagePaths.categories.spa,
+  spa: imagePaths.categories.spa,
+  'allay-pilates': imagePaths.categories.pilates,
+  pilates: imagePaths.categories.pilates,
+  'allay-nail-studio': imagePaths.categories.nailStudio,
+  nails: imagePaths.categories.nailStudio,
+  'allay-lash-studio': imagePaths.categories.lashStudio,
+  lashes: imagePaths.categories.lashStudio,
+  'allay-salon': imagePaths.categories.salon,
+  salon: imagePaths.categories.salon,
+  facials: imagePaths.categories.facials,
+  massage: imagePaths.categories.massage,
+  sauna: imagePaths.categories.sauna,
+  headspa: imagePaths.categories.headspa,
+  'hair-and-wigs': imagePaths.categories.wigs,
+  wigs: imagePaths.categories.wigs,
+  braiding: imagePaths.categories.hairBraiding,
+  'hair-braiding': imagePaths.categories.hairBraiding,
+}
 
-// Ordered by filename — drop home-hero-1.jpg, home-hero-2.jpg, etc. to populate this.
-export const heroImages = Object.keys(heroImagesByFilename).sort().map((key) => heroImagesByFilename[key])
-
-// Looks up a dropped-in image by service or category slug (e.g. "signature-glow-facial" or "allay-spa").
-// Returns undefined when no matching file has been added yet.
 export function getServiceImage(slug) {
-  return slug ? serviceImagesByFilename[slug] : undefined
+  return serviceImagesBySlug[slug] || imagePaths.placeholders.service
 }
+
+export function getCategoryImage(slug) {
+  return categoryImagesBySlug[slug] || imagePaths.placeholders.category
+}
+
+export const heroImages = [
+  imagePaths.home.heroMain,
+  imagePaths.home.heroSecondary,
+  imagePaths.home.heroDetail,
+]
 
 export const backgroundImages = {
-  booking: backgroundImagesByFilename['booking-bg'],
-  waitlist: backgroundImagesByFilename['waitlist-bg'],
+  booking: imagePaths.booking.hero,
+  waitlist: imagePaths.waitlist.hero,
+  auth: imagePaths.auth.side,
+  adminLogin: imagePaths.auth.adminLoginBg,
 }

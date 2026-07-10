@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SectionHeader from '../../components/common/SectionHeader'
 import ServiceCard from '../../components/common/ServiceCard'
+import { getCategoryImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
 import { serviceCategories } from '../../data/serviceCategories'
 import { getServices } from '../../services/servicesApi'
@@ -43,7 +44,7 @@ export default function Services() {
 
     <section className="category-showcase section">
       <div className="category-showcase__track">
-        <button type="button" className={`category-card category-card--all ${activeCategory === 'all' ? 'is-active' : ''}`} onClick={() => selectCategory('all')}>
+        <button type="button" className={`category-card category-card--all ${activeCategory === 'all' ? 'is-active' : ''}`} style={{ '--card-image': `url(${getCategoryImage('all')})` }} onClick={() => selectCategory('all')}>
           <span>All</span>
           <Sparkles size={24} strokeWidth={1.3} />
           <h3>All services</h3>
@@ -52,7 +53,7 @@ export default function Services() {
         {serviceCategories.slice(0, 10).map((category, index) => {
           const Icon = icons[index % icons.length]
           const selected = activeCategory === category.slug
-          return <button type="button" key={category.id} className={`category-card category-card--${index % 3} ${selected ? 'is-active' : ''}`} onClick={() => selectCategory(category.slug)}>
+          return <button type="button" key={category.id} className={`category-card category-card--${index % 3} ${selected ? 'is-active' : ''}`} style={{ '--card-image': `url(${getCategoryImage(category.slug)})` }} onClick={() => selectCategory(category.slug)}>
             <span>0{index + 1}</span>
             <Icon size={24} strokeWidth={1.3} />
             <h3>{category.name}</h3>

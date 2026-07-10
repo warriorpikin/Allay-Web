@@ -7,11 +7,11 @@ import Button from '../../components/common/Button'
 import WaitlistServiceSelector from '../../components/common/WaitlistServiceSelector'
 import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
-import { backgroundImages } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getServices } from '../../services/servicesApi'
 import { joinWaitlist } from '../../services/waitlistApi'
+import { imagePaths } from '../../utils/imagePaths'
 
 function WaitlistHeader() {
   return <div className="waitlist-page__top"><Logo /><div className="waitlist-page__nav"><Link to="/"><ArrowLeft size={15} /> Return home</Link></div></div>
@@ -54,9 +54,7 @@ export default function Waitlist() {
       .finally(() => setSubmitting(false))
   }
 
-  const backgroundStyle = backgroundImages.waitlist
-    ? { backgroundImage: `linear-gradient(var(--color-ivory-72), var(--color-ivory-88)), url(${backgroundImages.waitlist})` }
-    : undefined
+  const backgroundStyle = { '--waitlist-page-image': `url(${imagePaths.waitlist.hero})` }
 
   return <main className="waitlist-page" style={backgroundStyle}>
     <WaitlistHeader />

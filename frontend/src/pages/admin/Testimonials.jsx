@@ -136,7 +136,7 @@ export default function Testimonials() {
     <Modal open={formOpen} onClose={close} title={editing ? 'Edit testimonial' : 'Add testimonial'}>
       <form className="admin-service-form" onSubmit={save}>
         <Input id="testimonial-name" label="Client name" required value={form.customerName} onChange={update('customerName')} />
-        <Input id="testimonial-image" label="Profile image URL" value={form.profileImageUrl} onChange={update('profileImageUrl')} placeholder="/images/allay/client.jpg" />
+        <Input id="testimonial-image" label="Profile image URL" value={form.profileImageUrl} onChange={update('profileImageUrl')} placeholder="Admin-uploaded profile image URL" />
         <Textarea id="testimonial-text" label="Testimonial" required rows={4} value={form.testimonialText} onChange={update('testimonialText')} />
         <div className="admin-form-grid">
           <Input id="testimonial-rating" label="Rating" type="number" min="1" max="5" required value={form.rating} onChange={update('rating')} />

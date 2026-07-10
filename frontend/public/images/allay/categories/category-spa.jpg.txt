@@ -1,0 +1,5 @@
+﻿This is a placeholder for category-spa.jpg.
+Replace this TXT file with the real image named exactly: category-spa.jpg
+The frontend code references: /images/allay/categories/category-spa.jpg
+Use JPG format.
+Recommended size: 1200x900.

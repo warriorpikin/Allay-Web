@@ -1,0 +1,5 @@
+﻿This is a placeholder for service-wig-styling.jpg.
+Replace this TXT file with the real image named exactly: service-wig-styling.jpg
+The frontend code references: /images/allay/services/service-wig-styling.jpg
+Use JPG format.
+Recommended size: 1200x800.

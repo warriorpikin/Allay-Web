@@ -21,6 +21,7 @@ import { createBooking } from '../../services/bookingApi'
 import { getServices } from '../../services/servicesApi'
 import { calculateBookingTotal } from '../../utils/calculateBookingTotal'
 import { generateBookingReference } from '../../utils/generateBookingReference'
+import { imagePaths } from '../../utils/imagePaths'
 
 const fallbackTimes = ['09:00', '10:30', '12:00', '13:30', '15:00'].map((time) => ({ time, available: true, reason: 'available', remainingCapacity: 2 }))
 
@@ -168,7 +169,7 @@ export default function Booking() {
   if (siteModeLoading || authLoading) return <Loader label="Opening the Allay booking diary" />
 
   if (!isLive) {
-    return <section className="booking-disabled section compact">
+    return <section className="booking-disabled section compact" style={{ '--booking-page-image': `url(${imagePaths.booking.empty})` }}>
       <span className="eyebrow">Booking is not live yet</span>
       <h1>Private bookings open soon.</h1>
       <p>Allay House is currently in pre-launch mode, so appointments cannot be booked yet. Join the private waitlist for launch access and service updates.</p>

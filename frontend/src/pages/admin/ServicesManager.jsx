@@ -209,7 +209,7 @@ export default function ServicesManager() {
           <Input id="service-capacity" label="Same-time capacity" type="number" min="1" required value={form.simultaneousCapacity} onChange={update('simultaneousCapacity')} />
           <Input id="service-order" label="Display order" type="number" min="0" value={form.displayOrder} onChange={update('displayOrder')} />
         </div>
-        <Input id="service-image-url" label="Image URL or local path" value={form.imageUrl} onChange={update('imageUrl')} placeholder="/images/allay/services/service.jpg" />
+        <Input id="service-image-url" label="Image URL or local path" value={form.imageUrl} onChange={update('imageUrl')} placeholder="/images/allay/services/service-swedish-massage.jpg" />
         <label className="admin-file-control" htmlFor="service-image-file">
           <span>Upload local image</span>
           <input id="service-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />

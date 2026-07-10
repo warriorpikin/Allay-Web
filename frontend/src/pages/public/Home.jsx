@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import SectionHeader from '../../components/common/SectionHeader'
+import { getCategoryImage } from '../../data/allayImages'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getTestimonials } from '../../services/servicesApi'
+import { imagePaths } from '../../utils/imagePaths'
 
 const divisions = [
   { name: 'Allay Spa', note: 'Massage / Facials / Sauna', tone: 'stone', slug: 'allay-spa', icon: Leaf },
@@ -53,7 +55,7 @@ export default function Home() {
       <div className="home-hero__visual">
         <span className="home-hero__accent home-hero__accent--sage" />
         <span className="home-hero__accent home-hero__accent--mauve" />
-        <ImagePlaceholder src="/images/allay-house-hero.png" alt="Serene treatment space at Allay House" variant="arch" />
+        <ImagePlaceholder src={imagePaths.home.heroMain} fallbackSrc={imagePaths.placeholders.hero} alt="Serene treatment space at Allay House" variant="arch" />
         <div className="home-hero__floating"><Flower2 size={20} /><div><small>Inside the house</small><strong>Spa / movement / beauty</strong></div></div>
       </div>
     </section>
@@ -74,7 +76,7 @@ export default function Home() {
       </div>
       <div className="division-grid">
         {divisions.map(({ name, note, tone, slug, icon: Icon }, index) => (
-          <Link to={`/services?category=${slug}`} className={`division-card division-card--${tone}`} key={name}>
+          <Link to={`/services?category=${slug}`} className={`division-card division-card--${tone}`} style={{ '--card-image': `url(${getCategoryImage(slug)})` }} key={name}>
             <span>0{index + 1}</span>
             <Icon size={27} strokeWidth={1.2} />
             <div><h3>{name}</h3><p>{note}</p></div>
@@ -85,7 +87,7 @@ export default function Home() {
     </section>
 
     <section className="ritual section">
-      <div className="ritual__arch"><ImagePlaceholder src="/images/allay-house-hero.png" alt="A calm treatment setting" variant="arch" /></div>
+      <div className="ritual__arch"><ImagePlaceholder src={imagePaths.home.wellnessSection} fallbackSrc={imagePaths.placeholders.hero} alt="A calm treatment setting" variant="arch" /></div>
       <div className="ritual__copy"><SectionHeader eyebrow="Your time, held gently" title="Make a ritual of feeling well." subtitle="We believe care works best when it feels unhurried. Choose a treatment, find a time that suits you, and let us take care of the rest." /><Button to="/about" variant="outline">Discover our philosophy <ArrowRight size={16} /></Button></div>
     </section>
 
@@ -94,7 +96,7 @@ export default function Home() {
       <div className="testimonial-grid">
         {testimonials.map((item) => (
           <article className="testimonial-card" key={item.name}>
-            <div className="testimonial-card__avatar" aria-hidden="true">{item.image ? <img src={item.image} alt="" /> : item.name.slice(0, 1)}</div>
+            <div className="testimonial-card__avatar" aria-hidden="true">{item.image ? <img src={item.image} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = imagePaths.placeholders.avatar }} /> : item.name.slice(0, 1)}</div>
             <div className="testimonial-card__rating" aria-label={`${item.rating} out of 5 rating`}>{item.rating}/5</div>
             <p>{item.text}</p>
             <strong>{item.name}</strong>

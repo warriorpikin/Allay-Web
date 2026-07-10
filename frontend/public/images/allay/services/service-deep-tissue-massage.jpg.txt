@@ -1,0 +1,5 @@
+﻿This is a placeholder for service-deep-tissue-massage.jpg.
+Replace this TXT file with the real image named exactly: service-deep-tissue-massage.jpg
+The frontend code references: /images/allay/services/service-deep-tissue-massage.jpg
+Use JPG format.
+Recommended size: 1200x800.

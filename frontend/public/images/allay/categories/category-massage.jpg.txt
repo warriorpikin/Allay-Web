@@ -1,0 +1,5 @@
+﻿This is a placeholder for category-massage.jpg.
+Replace this TXT file with the real image named exactly: category-massage.jpg
+The frontend code references: /images/allay/categories/category-massage.jpg
+Use JPG format.
+Recommended size: 1200x900.

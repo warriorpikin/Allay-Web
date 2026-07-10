@@ -1,5 +1,5 @@
 .admin-login { min-height: 100vh; display: grid; grid-template-columns: 1.05fr 0.95fr; background: var(--color-background); }
-.admin-login__art { padding: 50px; background: linear-gradient(0deg, var(--color-espresso-overlay), transparent), url('/images/allay-house-hero.png') center/cover; color: var(--color-on-dark); display: flex; flex-direction: column; justify-content: space-between; }
+.admin-login__art { padding: 50px; background: linear-gradient(0deg, var(--color-espresso-overlay), transparent), var(--admin-login-image, none) center/cover; color: var(--color-on-dark); display: flex; flex-direction: column; justify-content: space-between; }
 .admin-login__art h1 { color: var(--color-on-dark); font-size: clamp(55px, 6vw, 90px); line-height: 0.9; }
 .admin-login__form { width: min(430px, calc(100% - 48px)); margin: auto; display: flex; flex-direction: column; }
 .admin-login__form h2 { margin-bottom: 4px; font-size: 55px; }
