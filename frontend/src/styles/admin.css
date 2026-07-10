@@ -138,10 +138,18 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 .admin-file-control { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; color: var(--color-text); font-size: 10px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; }
 .admin-file-control input { padding: 11px; border: 1px dashed var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); font-size: 11px; letter-spacing: 0; text-transform: none; }
 .admin-file-control small { color: var(--color-text-soft); font-size: 10px; font-weight: 400; letter-spacing: 0; line-height: 1.5; text-transform: none; }
+.admin-image-preview { width: min(260px, 100%); aspect-ratio: 4 / 3; margin: 4px 0 12px; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); }
+.admin-image-preview img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.admin-image-preview--avatar { width: 96px; aspect-ratio: 1; border-radius: var(--radius-pill); }
 .admin-toggle-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 2px 0 18px; }
 .admin-toggle-pair label { display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); color: var(--color-text); font-size: 11px; }
 .admin-toggle-pair input { width: 18px; height: 18px; accent-color: var(--color-primary); }
 .admin-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.admin-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; color: var(--color-text-soft); font-size: 11px; }
+.admin-pagination > div { display: inline-flex; align-items: center; gap: 8px; }
+.admin-customer-detail dl { margin-top: 0; }
+.admin-customer-detail h3 { margin: 22px 0 8px; color: var(--color-primary); font-family: var(--font-heading); font-size: 24px; font-weight: 600; }
+.admin-customer-detail p { margin: 0; color: var(--color-text-soft); font-size: 11px; }
 
 @media (max-width: 980px) {
   .admin-hours-grid { grid-template-columns: 1fr; }
@@ -152,4 +160,6 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
   .admin-list article { align-items: flex-start; flex-direction: column; }
   .admin-form-grid, .admin-toggle-pair { grid-template-columns: 1fr; }
   .admin-row-actions, .admin-modal-actions { align-items: stretch; flex-direction: column; }
+  .admin-pagination { align-items: stretch; flex-direction: column; }
+  .admin-pagination > div { justify-content: space-between; }
 }

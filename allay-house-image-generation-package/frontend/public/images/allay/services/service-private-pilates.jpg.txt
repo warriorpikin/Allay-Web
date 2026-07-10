@@ -1,0 +1,5 @@
+﻿This is a placeholder for service-private-pilates.jpg.
+Replace this TXT file with the real image named exactly: service-private-pilates.jpg
+The frontend code references: /images/allay/services/service-private-pilates.jpg
+Use JPG format.
+Recommended size: 1200x800.

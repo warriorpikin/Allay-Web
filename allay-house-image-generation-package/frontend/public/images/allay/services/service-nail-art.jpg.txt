@@ -1,0 +1,5 @@
+﻿This is a placeholder for service-nail-art.jpg.
+Replace this TXT file with the real image named exactly: service-nail-art.jpg
+The frontend code references: /images/allay/services/service-nail-art.jpg
+Use JPG format.
+Recommended size: 1200x800.

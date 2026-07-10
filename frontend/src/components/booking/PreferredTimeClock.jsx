@@ -79,7 +79,9 @@ export default function PreferredTimeClock({
     setSelectedPeriod(period)
 
     if (!selectedDate) {
-      raiseError('Please select a date before choosing a preferred time.')
+      setValidationError('Choose a date to check whether this time is available.')
+      onInvalid?.('Choose a date to check whether this time is available.')
+      onSelect(time)
       return
     }
 
@@ -176,12 +178,12 @@ export default function PreferredTimeClock({
 
     <aside className="preferred-clock__suggestions">
       <span className="eyebrow">Available preferred times</span>
-      {activeSlots.length ? <div className="preferred-clock__chips">
+      {!selectedDate ? <p>Select a date to see recommended available times. Your custom time can still be saved first.</p> : activeSlots.length ? <div className="preferred-clock__chips">
         {visibleSlots.map((slot) => <button key={slot.time} type="button" className={value === slot.time ? 'is-selected' : ''} onClick={() => chooseSuggestion(slot.time)}>
           <strong>{displayTime(slot.time)}</strong>
           <small>{slotLabel(slot)}</small>
         </button>)}
-      </div> : <p>No preferred time slots are available for this date. Please choose another date or contact Allay House.</p>}
+      </div> : <p>No recommended slots are available for this date. You may choose another date or submit a preferred time for review.</p>}
       {validationError && <p className="preferred-clock__error">{validationError}</p>}
       <small className="preferred-clock__note">Full slots are hidden from this list. Final availability is still checked before your booking is confirmed.</small>
       <div className="preferred-clock__selected">Selected time: <strong>{displayTime(selectedPreferredTime)}</strong></div>

@@ -1,0 +1,5 @@
+﻿This is a placeholder for booking-success.jpg.
+Replace this TXT file with the real image named exactly: booking-success.jpg
+The frontend code references: /images/allay/booking/booking-success.jpg
+Use JPG format.
+Recommended size: 1800x1200 or 1600x1000.

@@ -26,10 +26,14 @@ const emptyForm = {
   price: 0,
   imageUrl: '',
   isActive: true,
+  bookable: true,
   isDiscountEligible: true,
   simultaneousCapacity: 7,
   displayOrder: 0,
 }
+
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
+const maxImageSize = 2.5 * 1024 * 1024
 
 function serviceToForm(service) {
   return {
@@ -41,23 +45,18 @@ function serviceToForm(service) {
     price: service.price || 0,
     imageUrl: service.imageUrl || service.localImagePath || '',
     isActive: Boolean(service.isActive),
+    bookable: service.bookable !== false,
     isDiscountEligible: Boolean(service.isDiscountEligible),
     simultaneousCapacity: service.simultaneousCapacity || 7,
     displayOrder: service.displayOrder || 0,
   }
 }
 
-function readImageUpload(file) {
-  if (!file) return Promise.resolve(null)
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const encoded = String(reader.result || '').split(',')[1]
-      resolve({ filename: file.name, mimeType: file.type, data: encoded })
-    }
-    reader.onerror = () => reject(new Error('Could not read image.'))
-    reader.readAsDataURL(file)
-  })
+function buildServiceFormData(form, imageFile) {
+  const data = new FormData()
+  for (const [key, value] of Object.entries(form)) data.append(key, value)
+  if (imageFile) data.append('image', imageFile)
+  return data
 }
 
 export default function ServicesManager() {
@@ -69,6 +68,7 @@ export default function ServicesManager() {
   const [editingService, setEditingService] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState('')
 
   const categoryOptions = useMemo(
     () => categories.map((category) => ({ value: category.id, label: `${category.name}${category.isActive ? '' : ' (inactive)'}` })),
@@ -92,6 +92,7 @@ export default function ServicesManager() {
     setEditingService(null)
     setForm(emptyForm)
     setImageFile(null)
+    setImagePreview('')
     setFormOpen(true)
   }
 
@@ -99,6 +100,7 @@ export default function ServicesManager() {
     setEditingService(service)
     setForm(serviceToForm(service))
     setImageFile(null)
+    setImagePreview(service.image || '')
     setFormOpen(true)
   }
 
@@ -108,6 +110,7 @@ export default function ServicesManager() {
     setEditingService(null)
     setForm(emptyForm)
     setImageFile(null)
+    setImagePreview('')
   }
 
   const update = (field) => (event) => {
@@ -115,19 +118,32 @@ export default function ServicesManager() {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  const handleImageChange = (event) => {
+    const nextFile = event.target.files?.[0] || null
+    if (!nextFile) {
+      setImageFile(null)
+      return
+    }
+    if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
+      event.target.value = ''
+      toast.error('Upload a JPG, PNG, or WebP image under 2.5MB.')
+      return
+    }
+    setImageFile(nextFile)
+    setImagePreview(URL.createObjectURL(nextFile))
+  }
+
   const save = async (event) => {
     event.preventDefault()
     setSaving(true)
     try {
-      const imageUpload = await readImageUpload(imageFile)
-      const payload = {
+      const payload = buildServiceFormData({
         ...form,
-        durationMinutes: Number(form.durationMinutes),
-        price: Number(form.price),
-        simultaneousCapacity: Number(form.simultaneousCapacity),
-        displayOrder: Number(form.displayOrder),
-        imageUpload,
-      }
+        durationMinutes: String(Number(form.durationMinutes)),
+        price: String(Number(form.price)),
+        simultaneousCapacity: String(Number(form.simultaneousCapacity)),
+        displayOrder: String(Number(form.displayOrder)),
+      }, imageFile)
       if (editingService) {
         await updateAdminService(editingService.id, payload)
         toast.success('Service updated.')
@@ -139,6 +155,7 @@ export default function ServicesManager() {
       setEditingService(null)
       setForm(emptyForm)
       setImageFile(null)
+      setImagePreview('')
       refresh()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save service.')
@@ -178,6 +195,7 @@ export default function ServicesManager() {
               <th>Duration</th>
               <th>Price</th>
               <th>Capacity</th>
+              <th>Bookable</th>
               <th>Status</th>
               <th />
             </tr>
@@ -189,6 +207,7 @@ export default function ServicesManager() {
               <td>{service.durationMinutes} mins</td>
               <td>{formatCurrency(service.price)}</td>
               <td>{service.simultaneousCapacity || 7}</td>
+              <td><Badge status={service.bookable === false ? 'pending' : 'paid'}>{service.bookable === false ? 'Paused' : 'Bookable'}</Badge></td>
               <td><Badge status={service.isActive ? 'paid' : 'cancelled'}>{service.isActive ? 'Active' : 'Inactive'}</Badge></td>
               <td><span className="admin-row-actions"><Button size="sm" variant="outline" onClick={() => openEdit(service)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(service)}>Delete</Button></span></td>
             </tr>)}
@@ -209,14 +228,16 @@ export default function ServicesManager() {
           <Input id="service-capacity" label="Same-time capacity" type="number" min="1" required value={form.simultaneousCapacity} onChange={update('simultaneousCapacity')} />
           <Input id="service-order" label="Display order" type="number" min="0" value={form.displayOrder} onChange={update('displayOrder')} />
         </div>
-        <Input id="service-image-url" label="Image URL or local path" value={form.imageUrl} onChange={update('imageUrl')} placeholder="/images/allay/services/service-swedish-massage.jpg" />
+        {imagePreview && <div className="admin-image-preview"><img src={imagePreview} alt="" /><span>Current service image</span></div>}
+        <input type="hidden" value={form.imageUrl} name="imageUrl" readOnly />
         <label className="admin-file-control" htmlFor="service-image-file">
-          <span>Upload local image</span>
-          <input id="service-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />
+          <span>{imagePreview ? 'Replace image from device' : 'Upload image from device'}</span>
+          <input id="service-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
           <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 2.5MB.'}</small>
         </label>
         <div className="admin-toggle-pair">
           <label><input type="checkbox" checked={form.isActive} onChange={update('isActive')} /> Active on public menu</label>
+          <label><input type="checkbox" checked={form.bookable} onChange={update('bookable')} /> Bookable by customers</label>
           <label><input type="checkbox" checked={form.isDiscountEligible} onChange={update('isDiscountEligible')} /> Coupon eligible</label>
         </div>
         <div className="admin-modal-actions">

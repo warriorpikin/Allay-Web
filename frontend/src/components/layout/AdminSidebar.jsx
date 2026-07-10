@@ -1,4 +1,4 @@
-import { CalendarCheck, Clock, CreditCard, LayoutDashboard, Mail, Settings, Sparkles, Star, Users, X } from 'lucide-react'
+import { CalendarCheck, Clock, CreditCard, LayoutDashboard, Mail, Settings, Sparkles, Star, UserRound, Users, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { adminNavigationLinks } from '../../data/navigationLinks'
 import Brand from '../common/Brand'
@@ -6,6 +6,7 @@ import Brand from '../common/Brand'
 const iconsByPath = {
   '/allay-admin': LayoutDashboard,
   '/allay-admin/bookings': CalendarCheck,
+  '/allay-admin/customers': UserRound,
   '/allay-admin/availability': Clock,
   '/allay-admin/services': Sparkles,
   '/allay-admin/testimonials': Star,
@@ -24,4 +25,3 @@ export default function AdminSidebar({ open, collapsed, onClose }) {
     })}</nav>
   </aside>
 }
-

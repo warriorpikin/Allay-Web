@@ -1,0 +1,5 @@
+﻿This is a placeholder for service-sauna-session.jpg.
+Replace this TXT file with the real image named exactly: service-sauna-session.jpg
+The frontend code references: /images/allay/services/service-sauna-session.jpg
+Use JPG format.
+Recommended size: 1200x800.

@@ -6,6 +6,7 @@ import AdminLogin from '../pages/admin/AdminLogin'
 import Availability from '../pages/admin/Availability'
 import BookingDetails from '../pages/admin/BookingDetails'
 import Bookings from '../pages/admin/Bookings'
+import Customers from '../pages/admin/Customers'
 import Dashboard from '../pages/admin/Dashboard'
 import EmailLogs from '../pages/admin/EmailLogs'
 import Payments from '../pages/admin/Payments'
@@ -51,6 +52,7 @@ export default function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="bookings/:id" element={<BookingDetails />} />
+        <Route path="customers" element={<Customers />} />
         <Route path="services" element={<ServicesManager />} />
         <Route path="testimonials" element={<Testimonials />} />
         <Route path="availability" element={<Availability />} />

@@ -16,6 +16,7 @@ api.interceptors.request.use((config) => {
   const isAdminRequest = config.url?.startsWith('/admin')
   const token = localStorage.getItem(isAdminRequest ? ADMIN_TOKEN_KEY : CUSTOMER_TOKEN_KEY)
   if (token) config.headers.Authorization = `Bearer ${token}`
+  if (config.data instanceof FormData) delete config.headers['Content-Type']
   return config
 })
 

@@ -16,6 +16,7 @@ import {
 
 const emptyForm = {
   customerName: '',
+  customerRole: '',
   profileImageUrl: '',
   testimonialText: '',
   rating: 5,
@@ -23,9 +24,13 @@ const emptyForm = {
   displayOrder: 0,
 }
 
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
+const maxImageSize = 2.5 * 1024 * 1024
+
 function toForm(testimonial) {
   return {
     customerName: testimonial.customerName || '',
+    customerRole: testimonial.customerRole || '',
     profileImageUrl: testimonial.profileImageUrl || '',
     testimonialText: testimonial.testimonialText || '',
     rating: testimonial.rating || 5,
@@ -41,6 +46,8 @@ export default function Testimonials() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState('')
 
   const refresh = () => {
     setLoading(true)
@@ -55,12 +62,16 @@ export default function Testimonials() {
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
+    setImageFile(null)
+    setImagePreview('')
     setFormOpen(true)
   }
 
   const openEdit = (testimonial) => {
     setEditing(testimonial)
     setForm(toForm(testimonial))
+    setImageFile(null)
+    setImagePreview(testimonial.profileImageUrl || '')
     setFormOpen(true)
   }
 
@@ -69,6 +80,8 @@ export default function Testimonials() {
     setFormOpen(false)
     setEditing(null)
     setForm(emptyForm)
+    setImageFile(null)
+    setImagePreview('')
   }
 
   const update = (field) => (event) => {
@@ -76,10 +89,27 @@ export default function Testimonials() {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
+  const handleImageChange = (event) => {
+    const nextFile = event.target.files?.[0] || null
+    if (!nextFile) {
+      setImageFile(null)
+      return
+    }
+    if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
+      event.target.value = ''
+      toast.error('Upload a JPG, PNG, or WebP image under 2.5MB.')
+      return
+    }
+    setImageFile(nextFile)
+    setImagePreview(URL.createObjectURL(nextFile))
+  }
+
   const save = async (event) => {
     event.preventDefault()
     setSaving(true)
-    const payload = { ...form, rating: Number(form.rating), displayOrder: Number(form.displayOrder) }
+    const payload = new FormData()
+    for (const [key, value] of Object.entries({ ...form, rating: Number(form.rating), displayOrder: Number(form.displayOrder) })) payload.append(key, value)
+    if (imageFile) payload.append('image', imageFile)
     try {
       if (editing) {
         await updateAdminTestimonial(editing.id, payload)
@@ -91,6 +121,8 @@ export default function Testimonials() {
       setFormOpen(false)
       setEditing(null)
       setForm(emptyForm)
+      setImageFile(null)
+      setImagePreview('')
       refresh()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save testimonial.')
@@ -136,7 +168,14 @@ export default function Testimonials() {
     <Modal open={formOpen} onClose={close} title={editing ? 'Edit testimonial' : 'Add testimonial'}>
       <form className="admin-service-form" onSubmit={save}>
         <Input id="testimonial-name" label="Client name" required value={form.customerName} onChange={update('customerName')} />
-        <Input id="testimonial-image" label="Profile image URL" value={form.profileImageUrl} onChange={update('profileImageUrl')} placeholder="Admin-uploaded profile image URL" />
+        <Input id="testimonial-role" label="Subtitle (optional)" value={form.customerRole} onChange={update('customerRole')} placeholder="Member, client, or service note" />
+        {imagePreview && <div className="admin-image-preview admin-image-preview--avatar"><img src={imagePreview} alt="" /><span>Current testimonial image</span></div>}
+        <input type="hidden" value={form.profileImageUrl} name="profileImageUrl" readOnly />
+        <label className="admin-file-control" htmlFor="testimonial-image-file">
+          <span>{imagePreview ? 'Replace profile image' : 'Upload profile image'}</span>
+          <input id="testimonial-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
+          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 2.5MB.'}</small>
+        </label>
         <Textarea id="testimonial-text" label="Testimonial" required rows={4} value={form.testimonialText} onChange={update('testimonialText')} />
         <div className="admin-form-grid">
           <Input id="testimonial-rating" label="Rating" type="number" min="1" max="5" required value={form.rating} onChange={update('rating')} />

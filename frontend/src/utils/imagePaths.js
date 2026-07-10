@@ -27,15 +27,15 @@ export const imagePaths = {
     wigs: '/images/allay/categories/category-wigs.png',
   },
   about: {
-    hero: '/images/allay/about/about-hero.jpg',
+    hero: '/images/allay/about/about-hero.png',
     interior: '/images/allay/about/about-interior.jpg',
     care: '/images/allay/about/about-care.jpg',
     brandStory: '/images/allay/about/about-brand-story.jpg',
   },
   contact: {
-    hero: '/images/allay/contact/contact-hero.jpg',
+    hero: '/images/allay/contact/contact-hero.png',
     location: '/images/allay/contact/contact-location.jpg',
-    interior: '/images/allay/contact/contact-interior.jpg',
+    interior: '/images/allay/contact/contact-interior.png',
   },
   auth: {
     signin: '/images/allay/auth/auth-signin.jpg',

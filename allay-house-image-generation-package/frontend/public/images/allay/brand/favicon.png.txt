@@ -1,0 +1,5 @@
+﻿This is a placeholder for favicon.png.
+Replace this TXT file with the real image named exactly: favicon.png
+The frontend code references: /images/allay/brand/favicon.png
+Use PNG format.
+Recommended size: PNG favicon, 512x512 recommended..

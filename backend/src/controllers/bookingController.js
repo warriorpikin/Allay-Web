@@ -13,6 +13,7 @@ const bookingSchema = z.object({
   }).passthrough()).min(1),
   appointmentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   preferredTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
+  discountCode: z.string().trim().optional().default(''),
   customerNote: z.string().trim().max(1000).optional().default(''),
 })
 

@@ -55,7 +55,7 @@ export default function Home() {
       <div className="home-hero__visual">
         <span className="home-hero__accent home-hero__accent--sage" />
         <span className="home-hero__accent home-hero__accent--mauve" />
-        <ImagePlaceholder src={imagePaths.home.heroMain} fallbackSrc={imagePaths.placeholders.hero} alt="Serene treatment space at Allay House" variant="arch" />
+        <ImagePlaceholder src={imagePaths.home.heroMain} fallbackSrc={imagePaths.placeholders.hero} alt="Serene treatment space at Allay House" variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
         <div className="home-hero__floating"><Flower2 size={20} /><div><small>Inside the house</small><strong>Spa / movement / beauty</strong></div></div>
       </div>
     </section>
@@ -87,7 +87,7 @@ export default function Home() {
     </section>
 
     <section className="ritual section">
-      <div className="ritual__arch"><ImagePlaceholder src={imagePaths.home.wellnessSection} fallbackSrc={imagePaths.placeholders.hero} alt="A calm treatment setting" variant="arch" /></div>
+      <div className="ritual__arch"><ImagePlaceholder src={imagePaths.home.wellnessSection} fallbackSrc={imagePaths.placeholders.hero} alt="A calm treatment setting" variant="arch" width="760" height="1000" /></div>
       <div className="ritual__copy"><SectionHeader eyebrow="Your time, held gently" title="Make a ritual of feeling well." subtitle="We believe care works best when it feels unhurried. Choose a treatment, find a time that suits you, and let us take care of the rest." /><Button to="/about" variant="outline">Discover our philosophy <ArrowRight size={16} /></Button></div>
     </section>
 

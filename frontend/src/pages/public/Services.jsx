@@ -50,7 +50,7 @@ export default function Services() {
           <h3>All services</h3>
           <p>View every Allay House experience.</p>
         </button>
-        {serviceCategories.slice(0, 10).map((category, index) => {
+        {serviceCategories.map((category, index) => {
           const Icon = icons[index % icons.length]
           const selected = activeCategory === category.slug
           return <button type="button" key={category.id} className={`category-card category-card--${index % 3} ${selected ? 'is-active' : ''}`} style={{ '--card-image': `url(${getCategoryImage(category.slug)})` }} onClick={() => selectCategory(category.slug)}>

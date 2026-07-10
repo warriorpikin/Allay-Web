@@ -1,0 +1,5 @@
+﻿This is a placeholder for booking-side.jpg.
+Replace this TXT file with the real image named exactly: booking-side.jpg
+The frontend code references: /images/allay/booking/booking-side.jpg
+Use JPG format.
+Recommended size: 1800x1200 or 1600x1000.

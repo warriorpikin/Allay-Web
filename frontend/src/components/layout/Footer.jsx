@@ -1,4 +1,4 @@
-import { ArrowRight, Instagram, Phone } from 'lucide-react'
+import { ArrowRight, Instagram } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Logo from '../common/Logo'
 
@@ -9,9 +9,9 @@ export default function Footer() {
     <div><span className="eyebrow eyebrow--light">The house</span><p>Allay Spa<br />Allay Pilates<br />Nail, Lash & Salon</p></div>
     <div><span className="eyebrow eyebrow--light">Visit</span><p>14 Babatunde Kuboye street<br />Lekki Phase 1, Lagos state, Nigeria</p></div>
 
-    <div><span className="eyebrow eyebrow--light">Contact</span><a tel="tel:+2347012119202" aria-label="Phone"> +234 701 211 9202 </a></div>
-    
+    <div><span className="eyebrow eyebrow--light">Contact</span><a href="tel:+2347012119202" aria-label="Phone"> +234 701 211 9202 </a></div>
+
     <div><span className="eyebrow eyebrow--light">Stay close</span><a href="https://instagram.com" aria-label="Instagram"><Instagram size={15} /> Instagram <ArrowRight size={15} /></a></div>
-    <small className="footer__legal">© 2026 Allay House. Considered care for the whole self.</small>
+    <small className="footer__legal">&copy; 2026 Allay House. Considered care for the whole self.</small>
   </footer>
 }

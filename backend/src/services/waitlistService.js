@@ -16,7 +16,8 @@ async function resolveServices(selectedServices = []) {
     `SELECT id, name, slug
      FROM services
      WHERE (id::text = ANY($1) OR slug = ANY($1))
-       AND is_active = TRUE`,
+       AND is_active = TRUE
+       AND COALESCE(bookable, TRUE) = TRUE`,
     [identifiers],
   )
   return result.rows

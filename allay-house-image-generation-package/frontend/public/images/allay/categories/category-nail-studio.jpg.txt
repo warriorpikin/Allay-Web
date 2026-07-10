@@ -1,0 +1,5 @@
+﻿This is a placeholder for category-nail-studio.jpg.
+Replace this TXT file with the real image named exactly: category-nail-studio.jpg
+The frontend code references: /images/allay/categories/category-nail-studio.jpg
+Use JPG format.
+Recommended size: 1200x900.

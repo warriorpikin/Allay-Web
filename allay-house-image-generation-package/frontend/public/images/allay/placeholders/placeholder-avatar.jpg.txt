@@ -1,0 +1,5 @@
+﻿This is a placeholder for placeholder-avatar.jpg.
+Replace this TXT file with the real image named exactly: placeholder-avatar.jpg
+The frontend code references: /images/allay/placeholders/placeholder-avatar.jpg
+Use JPG format.
+Recommended size: 600x600.

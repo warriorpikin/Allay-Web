@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import AvailabilityNotice from '../../components/booking/AvailabilityNotice'
@@ -17,7 +17,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBooking } from '../../hooks/useBooking'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { checkAvailability, getAvailabilityDays, getAvailabilityTimes } from '../../services/availabilityApi'
-import { createBooking } from '../../services/bookingApi'
+import { createBooking, validateDiscountCode } from '../../services/bookingApi'
 import { getServices } from '../../services/servicesApi'
 import { calculateBookingTotal } from '../../utils/calculateBookingTotal'
 import { generateBookingReference } from '../../utils/generateBookingReference'
@@ -27,6 +27,27 @@ const fallbackTimes = ['09:00', '10:30', '12:00', '13:30', '15:00'].map((time) =
 
 function serviceQuery(services) {
   return services.map((service) => service.id).join(',')
+}
+
+function serviceKey(service) {
+  return service?.slug || service?.id
+}
+
+function uniqueServices(services = []) {
+  const seen = new Set()
+  return services.filter((service) => {
+    const key = serviceKey(service)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function replaceWithCurrentServices(selected = [], currentServices = []) {
+  return uniqueServices(selected.map((selectedService) => {
+    const selectedKey = serviceKey(selectedService)
+    return currentServices.find((service) => serviceKey(service) === selectedKey || service.id === selectedService.id) || selectedService
+  }))
 }
 
 export default function Booking() {
@@ -43,21 +64,25 @@ export default function Booking() {
   const [timeSlots, setTimeSlots] = useState([])
   const [suggestions, setSuggestions] = useState([])
   const [notice, setNotice] = useState(null)
+  const [coupon, setCoupon] = useState({ code: '', applied: null, loading: false, message: '', error: '' })
   const [loadingDays, setLoadingDays] = useState(false)
   const [loadingTimes, setLoadingTimes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const requestedService = useMemo(() => services.find((service) => service.slug === requestedSlug), [services, requestedSlug])
-  const totals = useMemo(() => calculateBookingTotal(booking.services), [booking.services])
+  const totals = useMemo(() => calculateBookingTotal(booking.services, coupon.applied?.discountAmount || 0), [booking.services, coupon.applied])
   const availableTimeSlots = useMemo(() => timeSlots.filter((slot) => slot.available), [timeSlots])
   const fullTimeSlots = useMemo(() => timeSlots.filter((slot) => !slot.available), [timeSlots])
 
   useEffect(() => {
     getServices()
       .then((data) => {
-        if (data.services?.length) setServices(data.services)
+        if (data.services?.length) {
+          setServices(data.services)
+          updateBooking((current) => ({ services: replaceWithCurrentServices(current.services, data.services) }))
+        }
       })
       .catch(() => setServices(placeholderServices))
-  }, [])
+  }, [updateBooking])
 
   useEffect(() => {
     if (!user) return
@@ -72,8 +97,12 @@ export default function Booking() {
 
   useEffect(() => {
     const requested = services.find((service) => service.slug === requestedSlug)
-    if (requested && !booking.services.some((service) => service.id === requested.id)) updateBooking({ services: [...booking.services, requested] })
-  }, [requestedSlug, booking.services, services, updateBooking])
+    if (!requestedSlug || !requested) return
+    updateBooking((current) => {
+      if (current.services.some((service) => serviceKey(service) === serviceKey(requested))) return {}
+      return { services: uniqueServices([...current.services, requested]) }
+    })
+  }, [requestedSlug, services, updateBooking])
 
   useEffect(() => {
     if (!booking.services.length) {
@@ -113,14 +142,18 @@ export default function Booking() {
 
   const updateCustomer = (field) => (event) => updateBooking({ customer: { ...booking.customer, [field]: event.target.value } })
   const selectDate = (date) => {
-    updateBooking({ date, time: '' })
+    updateBooking({ date })
     setNotice(null)
     setSuggestions([])
   }
 
-  const selectTime = async (time) => {
+  const selectTime = useCallback(async (time) => {
     updateBooking({ time })
     setSuggestions([])
+    if (!booking.date) {
+      setNotice({ status: 'pending', message: 'Choose a date to check whether this time is available.' })
+      return
+    }
     try {
       const result = await checkAvailability({ date: booking.date, preferredTime: time, serviceIds: booking.services.map((service) => service.id), totalDurationMinutes: totals.totalDuration })
       setNotice({ status: result.available ? 'available' : 'suggestions', message: result.message || (result.available ? 'This period is available.' : 'This period has already been booked. Please choose one of the available times below.'), suggestions: result.suggestedTimes || [] })
@@ -129,10 +162,39 @@ export default function Booking() {
     } catch {
       setNotice({ status: 'available', message: 'This preferred time is selected. Final availability will be checked when you confirm.' })
     }
-  }
+  }, [booking.date, booking.services, totals.totalDuration, updateBooking])
+
+  useEffect(() => {
+    if (!booking.date || !booking.time || !booking.services.length) return
+    selectTime(booking.time)
+  }, [booking.date, booking.services, booking.time, selectTime])
 
   const showClockError = (message) => {
-    setNotice({ status: 'suggestions', message, suggestions })
+    setNotice({ status: 'pending', message, suggestions })
+  }
+
+  const selectedServiceIds = useMemo(() => booking.services.map((service) => service.id).filter(Boolean), [booking.services])
+
+  const applyCoupon = async () => {
+    const code = coupon.code.trim()
+    if (!code) {
+      setCoupon((current) => ({ ...current, error: 'Enter a discount code first.', message: '' }))
+      return
+    }
+    setCoupon((current) => ({ ...current, loading: true, error: '', message: '' }))
+    try {
+      const result = await validateDiscountCode({ code, serviceIds: selectedServiceIds, subtotal: calculateBookingTotal(booking.services).subtotal })
+      setCoupon({ code: result.code, applied: result, loading: false, message: `You saved ${result.formattedDiscount || 'on this booking'}.`, error: '' })
+    } catch (error) {
+      setCoupon((current) => ({ ...current, applied: null, loading: false, error: error.response?.data?.message || 'This discount code could not be applied.', message: '' }))
+    }
+  }
+
+  const removeCoupon = () => setCoupon({ code: '', applied: null, loading: false, message: '', error: '' })
+
+  const updateSelectedServices = (nextServices) => {
+    updateBooking({ services: uniqueServices(nextServices), date: '', time: '' })
+    removeCoupon()
   }
 
   const submit = (event) => {
@@ -147,6 +209,7 @@ export default function Booking() {
       selectedServices: booking.services,
       appointmentDate: booking.date,
       preferredTime: booking.time,
+      discountCode: coupon.applied?.code || '',
       customerNote: booking.note,
     })
       .then((data) => {
@@ -190,5 +253,5 @@ export default function Booking() {
       <SectionHeader eyebrow="Book your visit" title="Book your Allay House experience" subtitle="Choose one service or compose a fuller visit — your summary updates as you go." as="h1" />
       {requestedService && <div className="page-intro__selected"><Check size={14} /> Selected: <strong>{requestedService.name}</strong></div>}
     </header>
-    <form className="booking-flow section compact" onSubmit={submit}><div className="booking-flow__main"><section className="booking-step"><header><span>01</span><div><h2>Choose your services</h2><p>Select as many experiences as you would like for this visit.</p></div></header><ServiceMultiSelect services={services} selectedServices={booking.services} onChange={(nextServices) => updateBooking({ services: nextServices, date: '', time: '' })} /></section><section className="booking-step"><header><span>02</span><div><h2>Choose your preferred date</h2><p>Fully booked, blocked, and closed days are softened out of the calendar.</p></div></header><BookingCalendar monthDate={monthDate} selectedDate={booking.date} days={calendarDays} onMonthChange={setMonthDate} onSelectDate={selectDate} disabled={!booking.services.length} loading={loadingDays} /></section><section className="booking-step"><header><span>03</span><div><h2>Preferred Booking Time</h2><p>Set your preferred time like a calm booking clock. Minutes move in clean 5-minute intervals and full slots stay hidden from the available list.</p></div></header><PreferredTimeClock value={booking.time} selectedDate={booking.date} availableTimeSlots={availableTimeSlots} fullTimeSlots={fullTimeSlots} suggestedTimes={suggestions} onSelect={selectTime} onInvalid={showClockError} loading={loadingTimes} /><AvailabilityNotice status={notice?.status} message={notice?.message} suggestions={notice?.suggestions} onSelectSuggestion={selectTime} /></section><section className="booking-step"><header><span>04</span><div><h2>Your details</h2><p>Tell us where to send your appointment confirmation.</p></div></header><div className="form-row"><Input id="booking-name" label="Full name" required value={booking.customer.fullName} onChange={updateCustomer('fullName')} /><Input id="booking-email" label="Email" type="email" required value={booking.customer.email} onChange={updateCustomer('email')} /></div><Input id="booking-phone" label="Phone number" type="tel" required value={booking.customer.phone} onChange={updateCustomer('phone')} /><Textarea id="booking-note" label="Optional note" value={booking.note} onChange={(event) => updateBooking({ note: event.target.value })} /></section></div><BookingSummary services={booking.services} date={booking.date} time={booking.time} loading={submitting} /></form></>
+    <form className="booking-flow section compact" onSubmit={submit}><div className="booking-flow__main"><section className="booking-step"><header><span>01</span><div><h2>Choose your services</h2><p>Select as many experiences as you would like for this visit.</p></div></header><ServiceMultiSelect services={services} selectedServices={booking.services} onChange={updateSelectedServices} /></section><section className="booking-step"><header><span>02</span><div><h2>Choose your preferred date</h2><p>Fully booked, blocked, and closed days are softened out of the calendar.</p></div></header><BookingCalendar monthDate={monthDate} selectedDate={booking.date} days={calendarDays} onMonthChange={setMonthDate} onSelectDate={selectDate} disabled={!booking.services.length} loading={loadingDays} /></section><section className="booking-step"><header><span>03</span><div><h2>Preferred Booking Time</h2><p>Set your preferred time like a calm booking clock. Minutes move in clean 5-minute intervals and full slots stay hidden from the available list.</p></div></header><PreferredTimeClock value={booking.time} selectedDate={booking.date} availableTimeSlots={availableTimeSlots} fullTimeSlots={fullTimeSlots} suggestedTimes={suggestions} onSelect={selectTime} onInvalid={showClockError} loading={loadingTimes} /><AvailabilityNotice status={notice?.status} message={notice?.message} suggestions={notice?.suggestions} onSelectSuggestion={selectTime} /></section><section className="booking-step"><header><span>04</span><div><h2>Your details</h2><p>Tell us where to send your appointment confirmation.</p></div></header><div className="form-row"><Input id="booking-name" label="Full name" required value={booking.customer.fullName} onChange={updateCustomer('fullName')} /><Input id="booking-email" label="Email" type="email" required value={booking.customer.email} onChange={updateCustomer('email')} /></div><Input id="booking-phone" label="Phone number" type="tel" required value={booking.customer.phone} onChange={updateCustomer('phone')} /><Textarea id="booking-note" label="Optional note" value={booking.note} onChange={(event) => updateBooking({ note: event.target.value })} /></section></div><BookingSummary services={booking.services} date={booking.date} time={booking.time} customer={booking.customer} discount={coupon.applied?.discountAmount || 0} coupon={coupon} onCouponChange={(code) => setCoupon((current) => ({ ...current, code }))} onApplyCoupon={applyCoupon} onRemoveCoupon={removeCoupon} loading={submitting} /></form></>
 }

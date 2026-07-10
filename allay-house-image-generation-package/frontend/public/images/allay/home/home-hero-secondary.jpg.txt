@@ -1,0 +1,5 @@
+﻿This is a placeholder for home-hero-secondary.jpg.
+Replace this TXT file with the real image named exactly: home-hero-secondary.jpg
+The frontend code references: /images/allay/home/home-hero-secondary.jpg
+Use JPG format.
+Recommended size: 1800x1200 or 1600x1000.

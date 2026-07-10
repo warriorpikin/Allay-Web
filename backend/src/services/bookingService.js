@@ -1,5 +1,6 @@
 import { pool, query } from '../config/database.js'
 import { checkAvailability } from './availabilityService.js'
+import { markDiscountCodeUsed, validateDiscountCode } from './discountService.js'
 import { getPublicSiteMode } from './settingsService.js'
 import { addMinutesToTime } from '../utils/timeSlots.js'
 import { generateBookingReference } from '../utils/bookingReference.js'
@@ -14,10 +15,11 @@ async function resolveServices(selectedServices = []) {
   if (!identifiers.length) return []
 
   const result = await query(
-    `SELECT id, name, slug, duration_minutes, price, is_active
+    `SELECT id, name, slug, duration_minutes, price, is_active, is_discount_eligible
      FROM services
      WHERE (id::text = ANY($1) OR slug = ANY($1))
        AND is_active = TRUE
+       AND COALESCE(bookable, TRUE) = TRUE
      ORDER BY display_order ASC, name ASC`,
     [identifiers],
   )
@@ -55,7 +57,13 @@ export async function createBookingRequest(payload) {
   const serviceIds = services.map((service) => service.id)
   const totalDurationMinutes = services.reduce((sum, service) => sum + Number(service.duration_minutes), 0)
   const subtotal = services.reduce((sum, service) => sum + Number(service.price), 0)
-  const totalAmount = subtotal
+  const discount = payload.discountCode ? await validateDiscountCode({
+    code: payload.discountCode,
+    services,
+    subtotal,
+  }) : null
+  const discountAmount = discount?.discountAmount || 0
+  const totalAmount = Math.max(subtotal - discountAmount, 0)
   const availability = await checkAvailability({
     date: payload.appointmentDate,
     preferredTime: payload.preferredTime,
@@ -80,9 +88,10 @@ export async function createBookingRequest(payload) {
     const booking = await client.query(
       `INSERT INTO bookings (
         booking_reference, customer_id, customer_name, customer_email, customer_phone, status, payment_status,
-        appointment_date, start_time, end_time, total_duration_minutes, subtotal, discount_amount, total_amount, customer_note
+        appointment_date, start_time, end_time, total_duration_minutes, subtotal, discount_amount, total_amount,
+        discount_code_id, discount_code, customer_note
       )
-      VALUES ($1, $2, $3, $4, $5, 'pending', 'unpaid', $6, $7, $8, $9, $10, 0, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, 'pending', 'unpaid', $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *`,
       [
         bookingReference,
@@ -95,10 +104,15 @@ export async function createBookingRequest(payload) {
         endTime,
         totalDurationMinutes,
         subtotal,
+        discountAmount,
         totalAmount,
+        discount?.id || null,
+        discount?.code || null,
         payload.customerNote || null,
       ],
     )
+
+    if (discount?.id) await markDiscountCodeUsed(client, discount.id)
 
     for (const service of services) {
       await client.query(

@@ -3,6 +3,8 @@ import api from './api'
 export const loginAdmin = (data) => api.post('/admin/auth/login', data).then((response) => response.data)
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
 export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
+export const getAdminCustomers = (params) => api.get('/admin/customers', { params }).then(({ data }) => data)
+export const getAdminCustomer = (id) => api.get(`/admin/customers/${id}`).then(({ data }) => data)
 export const getAdminServices = () => api.get('/admin/services').then(({ data }) => data)
 export const getAdminServiceCategories = () => api.get('/admin/services/meta/categories').then(({ data }) => data)
 export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => response)

@@ -2,13 +2,14 @@ import { ArrowRight, Clock3 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getServiceImage } from '../../data/allayImages'
 import { formatPriceLabel } from '../../utils/formatCurrency'
-import { imagePaths } from '../../utils/imagePaths'
 import Button from './Button'
-import ImagePlaceholder from './ImagePlaceholder'
 
 export default function ServiceCard({ service }) {
+  const image = service.imageUrl || service.image || getServiceImage(service.slug)
   return <article className="service-card">
-    <Link className="service-card__image" to={`/services/${service.slug}`}><ImagePlaceholder src={service.image || getServiceImage(service.slug)} fallbackSrc={imagePaths.placeholders.service} alt={`${service.name} treatment`} category={service.category} variant="card" className={`accent-${service.accent || 'stone'}`} /></Link>
+    <Link className="service-card__image" to={`/services/${service.slug}`}>
+      <img src={image} alt={`${service.name} treatment`} width="640" height="480" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} />
+    </Link>
     <div className="service-card__body">
       <span className="service-card__category">{service.category}</span>
       <h3><Link to={`/services/${service.slug}`}>{service.name}</Link></h3>
