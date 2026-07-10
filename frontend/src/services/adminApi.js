@@ -1,4 +1,10 @@
 import api from './api'
+import { resolveImageUrl } from '../utils/resolveImageUrl'
+
+function normalizeTestimonial(testimonial = {}) {
+  const imageUrl = resolveImageUrl(testimonial.imageUrl || testimonial.profileImageUrl || '')
+  return { ...testimonial, imageUrl, profileImageUrl: imageUrl }
+}
 
 export const loginAdmin = (data) => api.post('/admin/auth/login', data).then((response) => response.data)
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
@@ -10,9 +16,9 @@ export const getAdminServiceCategories = () => api.get('/admin/services/meta/cat
 export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => response)
 export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => response)
 export const deleteAdminService = (id) => api.delete(`/admin/services/${id}`)
-export const getAdminTestimonials = () => api.get('/admin/testimonials').then(({ data }) => data)
-export const createAdminTestimonial = (data) => api.post('/admin/testimonials', data).then(({ data: response }) => response)
-export const updateAdminTestimonial = (id, data) => api.patch(`/admin/testimonials/${id}`, data).then(({ data: response }) => response)
+export const getAdminTestimonials = () => api.get('/admin/testimonials').then(({ data }) => ({ ...data, testimonials: (data.testimonials || []).map(normalizeTestimonial) }))
+export const createAdminTestimonial = (data) => api.post('/admin/testimonials', data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))
+export const updateAdminTestimonial = (id, data) => api.patch(`/admin/testimonials/${id}`, data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))
 export const deleteAdminTestimonial = (id) => api.delete(`/admin/testimonials/${id}`)
 export const getWaitlist = () => api.get('/admin/waitlist').then(({ data }) => data)
 export const sendWaitlistCoupons = (ids = []) => api.post('/admin/waitlist/send-coupons', { ids }).then(({ data }) => data)

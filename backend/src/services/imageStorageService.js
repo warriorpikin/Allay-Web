@@ -1,17 +1,6 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { env } from '../config/env.js'
+import { cloudinary, hasCloudinaryConfig } from '../config/cloudinary.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const projectRoot = path.resolve(__dirname, '../../..')
-const uploadRoot = path.resolve(projectRoot, env.LOCAL_UPLOAD_DIR)
-
-const allowedTypes = new Map([
-  ['image/jpeg', '.jpg'],
-  ['image/png', '.png'],
-  ['image/webp', '.webp'],
-])
+const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
 function slugify(value) {
   return String(value || 'image')
@@ -20,11 +9,6 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
     .slice(0, 80) || 'image'
-}
-
-function publicBaseUrl(req) {
-  if (env.PUBLIC_UPLOAD_BASE_URL) return env.PUBLIC_UPLOAD_BASE_URL.replace(/\/+$/, '')
-  return `${req.protocol}://${req.get('host')}`
 }
 
 export function validateImageFile(file) {
@@ -42,34 +26,54 @@ export function validateImageFile(file) {
   return file
 }
 
-export async function saveUploadedImage(file, { folder, slugPrefix, req }) {
+export async function uploadImageBuffer(file, { folder, slugPrefix }) {
   validateImageFile(file)
   if (!file) return null
-  if (env.UPLOAD_STORAGE_DRIVER !== 'local') {
-    const error = new Error('Image storage is not configured for this environment.')
+  if (!hasCloudinaryConfig()) {
+    const error = new Error('Image storage is not configured. Add Cloudinary credentials on the backend.')
     error.status = 503
     throw error
   }
 
-  const safeFolder = slugify(folder)
-  const extension = allowedTypes.get(file.mimetype)
-  const filename = `${slugify(slugPrefix)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extension}`
-  const relativeKey = path.posix.join('uploads', safeFolder, filename)
-  const absolutePath = path.join(uploadRoot, safeFolder, filename)
-  await mkdir(path.dirname(absolutePath), { recursive: true })
-  await writeFile(absolutePath, file.buffer)
+  const uploadFolder = `allay-house/${slugify(folder)}`
+  const publicId = `${slugify(slugPrefix)}-${Date.now()}`
 
-  return {
-    url: `${publicBaseUrl(req)}/${relativeKey}`,
-    storageKey: relativeKey,
-  }
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: uploadFolder,
+        public_id: publicId,
+        resource_type: 'image',
+        overwrite: false,
+      },
+      (error, result) => {
+        if (error) {
+          const uploadError = new Error('The image could not be uploaded. Please try another image.')
+          uploadError.status = 502
+          uploadError.cause = error
+          reject(uploadError)
+          return
+        }
+        if (!result?.secure_url || !result?.public_id) {
+          const uploadError = new Error('The image upload did not return a saved image URL.')
+          uploadError.status = 502
+          reject(uploadError)
+          return
+        }
+        resolve({ url: result.secure_url, publicId: result.public_id, storageKey: result.public_id })
+      },
+    )
+    stream.end(file.buffer)
+  })
 }
 
-export async function removeStoredImage(storageKey) {
-  if (!storageKey || !storageKey.startsWith('uploads/')) return
-  const absolutePath = path.resolve(projectRoot, storageKey)
-  if (!absolutePath.startsWith(uploadRoot)) return
-  await rm(absolutePath, { force: true }).catch(() => {})
+export async function saveUploadedImage(file, options) {
+  return uploadImageBuffer(file, options)
 }
 
-export { uploadRoot }
+export async function removeStoredImage(publicId) {
+  if (!publicId || !hasCloudinaryConfig()) return
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'image' }).catch((error) => {
+    console.error('[cloudinary] Failed to delete replaced image:', error.message)
+  })
+}

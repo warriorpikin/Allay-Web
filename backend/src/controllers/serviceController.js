@@ -38,7 +38,7 @@ function mapService(row) {
     image: row.image_url || row.local_image_path,
     imageUrl: row.image_url,
     localImagePath: row.local_image_path,
-    imageStorageKey: row.image_storage_key,
+    imagePublicId: row.image_public_id,
     isActive: row.is_active,
     bookable: row.bookable !== false,
     isDiscountEligible: row.is_discount_eligible,
@@ -130,7 +130,7 @@ export async function createAdminService(req, res, next) {
     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'services', slugPrefix: slug, req }) : null
 
     const result = await query(
-      `INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, local_image_path, image_storage_key,
+      `INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, local_image_path, image_public_id,
         is_active, bookable, is_discount_eligible, simultaneous_capacity, display_order)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
@@ -143,7 +143,7 @@ export async function createAdminService(req, res, next) {
         parsed.data.price,
         uploadedImage?.url || parsed.data.imageUrl || null,
         parsed.data.imageUrl && !uploadedImage ? parsed.data.imageUrl : null,
-        uploadedImage?.storageKey || null,
+        uploadedImage?.publicId || null,
         parsed.data.isActive,
         parsed.data.bookable,
         parsed.data.isDiscountEligible,
@@ -154,7 +154,7 @@ export async function createAdminService(req, res, next) {
     const category = await query('SELECT name FROM service_categories WHERE id = $1', [parsed.data.categoryId])
     return res.status(201).json({ service: mapService({ ...result.rows[0], category_name: category.rows[0]?.name }) })
   } catch (error) {
-    if (uploadedImage?.storageKey) await removeStoredImage(uploadedImage.storageKey)
+    if (uploadedImage?.publicId) await removeStoredImage(uploadedImage.publicId)
     if (error.code === '23505') return res.status(409).json({ message: 'A service with that slug already exists.' })
     return next(error)
   }
@@ -167,14 +167,14 @@ export async function updateAdminService(req, res, next) {
     if (!parsed.success) return res.status(400).json({ message: 'Enter valid service details.' })
     const slug = slugify(parsed.data.slug || parsed.data.name)
     if (!slug) return res.status(400).json({ message: 'Enter a valid service name or slug.' })
-    const current = await query('SELECT image_storage_key FROM services WHERE id = $1', [req.params.id])
+    const current = await query('SELECT image_public_id, image_url, local_image_path FROM services WHERE id = $1', [req.params.id])
     if (!current.rows[0]) return res.status(404).json({ message: 'Service not found.' })
     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'services', slugPrefix: slug, req }) : null
 
     const result = await query(
       `UPDATE services
        SET category_id = $1, name = $2, slug = $3, description = $4, duration_minutes = $5, price = $6,
-        image_url = $7, local_image_path = $8, image_storage_key = COALESCE($9, image_storage_key), is_active = $10,
+        image_url = COALESCE($7, image_url), local_image_path = COALESCE($8, local_image_path), image_public_id = COALESCE($9, image_public_id), is_active = $10,
         bookable = $11, is_discount_eligible = $12, simultaneous_capacity = $13, display_order = $14
        WHERE id = $15
        RETURNING *`,
@@ -185,9 +185,9 @@ export async function updateAdminService(req, res, next) {
         parsed.data.description || null,
         parsed.data.durationMinutes,
         parsed.data.price,
-        uploadedImage?.url || parsed.data.imageUrl || null,
-        uploadedImage ? null : (parsed.data.imageUrl || null),
-        uploadedImage?.storageKey || null,
+        uploadedImage?.url || null,
+        uploadedImage ? null : null,
+        uploadedImage?.publicId || null,
         parsed.data.isActive,
         parsed.data.bookable,
         parsed.data.isDiscountEligible,
@@ -197,11 +197,11 @@ export async function updateAdminService(req, res, next) {
       ],
     )
     if (!result.rows[0]) return res.status(404).json({ message: 'Service not found.' })
-    if (uploadedImage && current.rows[0].image_storage_key) await removeStoredImage(current.rows[0].image_storage_key)
+    if (uploadedImage && current.rows[0].image_public_id) await removeStoredImage(current.rows[0].image_public_id)
     const category = await query('SELECT name FROM service_categories WHERE id = $1', [parsed.data.categoryId])
     return res.json({ service: mapService({ ...result.rows[0], category_name: category.rows[0]?.name }) })
   } catch (error) {
-    if (uploadedImage?.storageKey) await removeStoredImage(uploadedImage.storageKey)
+    if (uploadedImage?.publicId) await removeStoredImage(uploadedImage.publicId)
     if (error.code === '23505') return res.status(409).json({ message: 'A service with that slug already exists.' })
     return next(error)
   }
@@ -209,9 +209,9 @@ export async function updateAdminService(req, res, next) {
 
 export async function deleteAdminService(req, res, next) {
   try {
-    const result = await query('DELETE FROM services WHERE id = $1 RETURNING id, image_storage_key', [req.params.id])
+    const result = await query('DELETE FROM services WHERE id = $1 RETURNING id, image_public_id', [req.params.id])
     if (!result.rows[0]) return res.status(404).json({ message: 'Service not found.' })
-    await removeStoredImage(result.rows[0].image_storage_key)
+    await removeStoredImage(result.rows[0].image_public_id)
     return res.status(204).send()
   } catch (error) {
     if (error.code === '23503') {

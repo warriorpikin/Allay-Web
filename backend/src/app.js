@@ -1,7 +1,6 @@
 import cors from 'cors'
 import express from 'express'
 import helmet from 'helmet'
-import { uploadRoot } from './services/imageStorageService.js'
 import { env } from './config/env.js'
 import { query } from './config/database.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
@@ -41,11 +40,6 @@ app.use(cors({
   credentials: true,
 }))
 app.use(express.json({ limit: '4mb' }))
-app.use('/uploads', express.static(uploadRoot, {
-  fallthrough: false,
-  immutable: true,
-  maxAge: '30d',
-}))
 
 app.get('/api/health', async (req, res, next) => {
   try {

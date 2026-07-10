@@ -28,6 +28,8 @@ export async function createBooking(req, res, next) {
       bookingReference: result.bookingReference,
       booking: result.booking,
       services: result.services,
+      confirmation: result.confirmation,
+      emailStatus: result.emailStatus,
     })
   } catch (error) {
     if (error.status === 403) return res.status(403).json({ message: error.message })

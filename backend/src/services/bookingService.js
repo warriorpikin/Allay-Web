@@ -4,6 +4,7 @@ import { markDiscountCodeUsed, validateDiscountCode } from './discountService.js
 import { getPublicSiteMode } from './settingsService.js'
 import { addMinutesToTime } from '../utils/timeSlots.js'
 import { generateBookingReference } from '../utils/bookingReference.js'
+import { sendBookingEmails } from './emailService.js'
 
 function candidateIdentifiers(selectedServices = []) {
   const values = selectedServices.flatMap((service) => [service.id, service.serviceId, service.slug]).filter(Boolean)
@@ -80,6 +81,8 @@ export async function createBookingRequest(payload) {
   }
 
   const client = await pool.connect()
+  let createdBooking = null
+  let createdServices = services
   try {
     await client.query('BEGIN')
     const customerId = await findOrCreateCustomer(client, payload)
@@ -125,11 +128,43 @@ export async function createBookingRequest(payload) {
     // TODO: trigger customer booking confirmation email after email automation is connected.
     // TODO: trigger admin booking notification email after email automation is connected.
     await client.query('COMMIT')
-    return { booking: booking.rows[0], services, bookingReference }
+    createdBooking = booking.rows[0]
   } catch (error) {
     await client.query('ROLLBACK')
     throw error
   } finally {
     client.release()
+  }
+
+  const emailStatus = await sendBookingEmails({ booking: createdBooking, services: createdServices })
+  return {
+    booking: createdBooking,
+    services,
+    bookingReference,
+    emailStatus,
+    confirmation: {
+      reference: bookingReference,
+      customer: {
+        fullName: createdBooking.customer_name,
+        email: createdBooking.customer_email,
+        phone: createdBooking.customer_phone,
+      },
+      services: services.map((service) => ({
+        id: service.id,
+        name: service.name,
+        slug: service.slug,
+        durationMinutes: Number(service.duration_minutes),
+        price: Number(service.price),
+      })),
+      date: createdBooking.appointment_date,
+      time: String(createdBooking.start_time).slice(0, 5),
+      totalDurationMinutes,
+      subtotal: Number(createdBooking.subtotal),
+      discountAmount: Number(createdBooking.discount_amount),
+      totalAmount: Number(createdBooking.total_amount),
+      status: createdBooking.status,
+      createdAt: createdBooking.created_at,
+      emailSent: Boolean(emailStatus.customer),
+    },
   }
 }

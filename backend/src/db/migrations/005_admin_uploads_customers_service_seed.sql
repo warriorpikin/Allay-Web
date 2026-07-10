@@ -5,12 +5,22 @@ ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'active';
 
 ALTER TABLE services
-  ADD COLUMN IF NOT EXISTS image_storage_key TEXT,
+  ADD COLUMN IF NOT EXISTS image_public_id TEXT,
   ADD COLUMN IF NOT EXISTS bookable BOOLEAN NOT NULL DEFAULT TRUE;
 
 ALTER TABLE testimonials
   ADD COLUMN IF NOT EXISTS customer_role VARCHAR(160),
-  ADD COLUMN IF NOT EXISTS profile_image_storage_key TEXT;
+  ADD COLUMN IF NOT EXISTS image_url TEXT,
+  ADD COLUMN IF NOT EXISTS image_public_id TEXT;
+
+UPDATE testimonials
+SET image_url = COALESCE(image_url, profile_image_url)
+WHERE profile_image_url IS NOT NULL;
+
+ALTER TABLE testimonials
+  ALTER COLUMN rating TYPE NUMERIC(2,1) USING rating::numeric,
+  DROP CONSTRAINT IF EXISTS testimonials_rating_check,
+  ADD CONSTRAINT testimonials_rating_check CHECK (rating >= 1 AND rating <= 5 AND rating * 2 = FLOOR(rating * 2));
 
 ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS discount_code_id UUID REFERENCES discount_codes(id) ON DELETE SET NULL,

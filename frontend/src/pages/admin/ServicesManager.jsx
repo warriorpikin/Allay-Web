@@ -33,7 +33,7 @@ const emptyForm = {
 }
 
 const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-const maxImageSize = 2.5 * 1024 * 1024
+const maxImageSize = 5 * 1024 * 1024
 
 function serviceToForm(service) {
   return {
@@ -88,6 +88,10 @@ export default function ServicesManager() {
 
   useEffect(() => { refresh() }, [])
 
+  useEffect(() => () => {
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+  }, [imagePreview])
+
   const openCreate = () => {
     setEditingService(null)
     setForm(emptyForm)
@@ -126,9 +130,10 @@ export default function ServicesManager() {
     }
     if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
       event.target.value = ''
-      toast.error('Upload a JPG, PNG, or WebP image under 2.5MB.')
+      toast.error('Upload a JPG, PNG, or WebP image under 5MB.')
       return
     }
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
     setImageFile(nextFile)
     setImagePreview(URL.createObjectURL(nextFile))
   }
@@ -233,7 +238,7 @@ export default function ServicesManager() {
         <label className="admin-file-control" htmlFor="service-image-file">
           <span>{imagePreview ? 'Replace image from device' : 'Upload image from device'}</span>
           <input id="service-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
-          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 2.5MB.'}</small>
+          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 5MB.'}</small>
         </label>
         <div className="admin-toggle-pair">
           <label><input type="checkbox" checked={form.isActive} onChange={update('isActive')} /> Active on public menu</label>

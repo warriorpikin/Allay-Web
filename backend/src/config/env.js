@@ -11,13 +11,15 @@ const schema = z.object({
   JWT_EXPIRES_IN: z.string().default('8h'),
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default('Allay House <hello@allayhouse.com>'),
+  ADMIN_EMAIL: z.string().optional().default(''),
   ADMIN_NOTIFICATION_EMAIL: z.string().optional().default(''),
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+  CLOUDINARY_API_KEY: z.string().optional().default(''),
+  CLOUDINARY_API_SECRET: z.string().optional().default(''),
   WAITLIST_LAUNCH_COUPON_CODE: z.string().optional().default('ALLAYEARLY'),
   WAITLIST_LAUNCH_DISCOUNT_TYPE: z.enum(['percent', 'fixed']).optional().default('percent'),
   WAITLIST_LAUNCH_DISCOUNT_VALUE: z.coerce.number().optional().default(15),
-  UPLOAD_STORAGE_DRIVER: z.enum(['local']).optional().default('local'),
-  LOCAL_UPLOAD_DIR: z.string().optional().default('uploads'),
-  PUBLIC_UPLOAD_BASE_URL: z.string().optional().default(''),
+  UPLOAD_STORAGE_DRIVER: z.enum(['cloudinary']).optional().default('cloudinary'),
 })
 
 const result = schema.safeParse(process.env)

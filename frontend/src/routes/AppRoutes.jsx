@@ -22,8 +22,10 @@ import BookingSuccess from '../pages/public/BookingSuccess'
 import Contact from '../pages/public/Contact'
 import Home from '../pages/public/Home'
 import NotFound from '../pages/public/NotFound'
+import PrivacyPolicy from '../pages/public/PrivacyPolicy'
 import ServiceDetail from '../pages/public/ServiceDetail'
 import Services from '../pages/public/Services'
+import TermsOfUse from '../pages/public/TermsOfUse'
 import Waitlist from '../pages/public/Waitlist'
 import ProtectedRoute from './ProtectedRoute'
 
@@ -37,6 +39,8 @@ export default function AppRoutes() {
       <Route path="booking-success" element={<BookingSuccess />} />
       <Route path="about" element={<About />} />
       <Route path="contact" element={<Contact />} />
+      <Route path="privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="terms-of-use" element={<TermsOfUse />} />
       <Route path="*" element={<NotFound />} />
     </Route>
 

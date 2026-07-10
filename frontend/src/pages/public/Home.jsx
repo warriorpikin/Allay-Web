@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import SectionHeader from '../../components/common/SectionHeader'
+import StarRating from '../../components/common/StarRating'
 import { getCategoryImage } from '../../data/allayImages'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getTestimonials } from '../../services/servicesApi'
@@ -97,7 +98,7 @@ export default function Home() {
         {testimonials.map((item) => (
           <article className="testimonial-card" key={item.name}>
             <div className="testimonial-card__avatar" aria-hidden="true">{item.image ? <img src={item.image} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = imagePaths.placeholders.avatar }} /> : item.name.slice(0, 1)}</div>
-            <div className="testimonial-card__rating" aria-label={`${item.rating} out of 5 rating`}>{item.rating}/5</div>
+            <StarRating rating={item.rating} className="testimonial-card__rating" />
             <p>{item.text}</p>
             <strong>{item.name}</strong>
           </article>

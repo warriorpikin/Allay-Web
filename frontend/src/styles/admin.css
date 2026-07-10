@@ -141,6 +141,7 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 .admin-image-preview { width: min(260px, 100%); aspect-ratio: 4 / 3; margin: 4px 0 12px; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); }
 .admin-image-preview img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .admin-image-preview--avatar { width: 96px; aspect-ratio: 1; border-radius: var(--radius-pill); }
+.admin-star-preview { margin: -10px 0 16px; }
 .admin-toggle-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 2px 0 18px; }
 .admin-toggle-pair label { display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); color: var(--color-text); font-size: 11px; }
 .admin-toggle-pair input { width: 18px; height: 18px; accent-color: var(--color-primary); }

@@ -7,6 +7,7 @@ import Loader from '../../components/common/Loader'
 import Modal from '../../components/common/Modal'
 import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
+import StarRating from '../../components/common/StarRating'
 import {
   createAdminTestimonial,
   deleteAdminTestimonial,
@@ -25,7 +26,7 @@ const emptyForm = {
 }
 
 const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-const maxImageSize = 2.5 * 1024 * 1024
+const maxImageSize = 5 * 1024 * 1024
 
 function toForm(testimonial) {
   return {
@@ -58,6 +59,10 @@ export default function Testimonials() {
   }
 
   useEffect(() => { refresh() }, [])
+
+  useEffect(() => () => {
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+  }, [imagePreview])
 
   const openCreate = () => {
     setEditing(null)
@@ -97,9 +102,10 @@ export default function Testimonials() {
     }
     if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
       event.target.value = ''
-      toast.error('Upload a JPG, PNG, or WebP image under 2.5MB.')
+      toast.error('Upload a JPG, PNG, or WebP image under 5MB.')
       return
     }
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
     setImageFile(nextFile)
     setImagePreview(URL.createObjectURL(nextFile))
   }
@@ -156,7 +162,7 @@ export default function Testimonials() {
             {testimonials.map((testimonial) => <tr key={testimonial.id}>
               <td>{testimonial.customerName}</td>
               <td><span className="admin-table-copy">{testimonial.testimonialText}</span></td>
-              <td>{testimonial.rating}/5</td>
+              <td><StarRating rating={testimonial.rating} /></td>
               <td><Badge status={testimonial.isActive ? 'paid' : 'cancelled'}>{testimonial.isActive ? 'Active' : 'Inactive'}</Badge></td>
               <td><span className="admin-row-actions"><Button size="sm" variant="outline" onClick={() => openEdit(testimonial)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => remove(testimonial)}>Delete</Button></span></td>
             </tr>)}
@@ -174,11 +180,14 @@ export default function Testimonials() {
         <label className="admin-file-control" htmlFor="testimonial-image-file">
           <span>{imagePreview ? 'Replace profile image' : 'Upload profile image'}</span>
           <input id="testimonial-image-file" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleImageChange} />
-          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 2.5MB.'}</small>
+          <small>{imageFile ? imageFile.name : 'Optional JPG, PNG, or WebP under 5MB.'}</small>
         </label>
         <Textarea id="testimonial-text" label="Testimonial" required rows={4} value={form.testimonialText} onChange={update('testimonialText')} />
         <div className="admin-form-grid">
-          <Input id="testimonial-rating" label="Rating" type="number" min="1" max="5" required value={form.rating} onChange={update('rating')} />
+          <div>
+            <Input id="testimonial-rating" label="Rating" type="number" min="1" max="5" step="0.5" required value={form.rating} onChange={update('rating')} />
+            <StarRating rating={form.rating} className="admin-star-preview" />
+          </div>
           <Input id="testimonial-order" label="Display order" type="number" min="0" value={form.displayOrder} onChange={update('displayOrder')} />
         </div>
         <div className="admin-toggle-pair">

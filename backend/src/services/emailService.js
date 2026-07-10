@@ -1,6 +1,27 @@
 import { query } from '../config/database.js'
 import { env } from '../config/env.js'
 
+function escapeHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value || 0))
+}
+
+function formatServices(services = []) {
+  return services.map((service) => `<li style="margin-bottom:8px;"><strong>${escapeHtml(service.name || service.service_name)}</strong><br><span>${Number(service.duration_minutes || service.durationMinutes || 0)} minutes / ${formatCurrency(service.price)}</span></li>`).join('')
+}
+
+function textServices(services = []) {
+  return services.map((service) => `- ${service.name || service.service_name}: ${Number(service.duration_minutes || service.durationMinutes || 0)} minutes / ${formatCurrency(service.price)}`).join('\n')
+}
+
 async function logEmail({ recipient, subject, emailType, status, errorMessage = null, relatedWaitlistId = null, relatedBookingId = null }) {
   try {
     await query(
@@ -18,14 +39,14 @@ async function logEmail({ recipient, subject, emailType, status, errorMessage = 
   }
 }
 
-async function sendViaResend({ to, subject, html }) {
+async function sendViaResend({ to, subject, html, text }) {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to, subject, html }),
+    body: JSON.stringify({ from: env.EMAIL_FROM, to, subject, html, text }),
   })
   if (!response.ok) {
     const body = await response.text().catch(() => '')
@@ -33,7 +54,7 @@ async function sendViaResend({ to, subject, html }) {
   }
 }
 
-export async function sendEmail({ to, subject, html, emailType, relatedWaitlistId = null, relatedBookingId = null }) {
+export async function sendEmail({ to, subject, html, text, emailType, relatedWaitlistId = null, relatedBookingId = null }) {
   if (!env.RESEND_API_KEY) {
     console.info(`[email] RESEND_API_KEY not configured — would send "${subject}" to ${to}`)
     await logEmail({ recipient: to, subject, emailType, status: 'skipped', errorMessage: 'RESEND_API_KEY not configured', relatedWaitlistId, relatedBookingId })
@@ -41,7 +62,7 @@ export async function sendEmail({ to, subject, html, emailType, relatedWaitlistI
   }
 
   try {
-    await sendViaResend({ to, subject, html })
+    await sendViaResend({ to, subject, html, text })
     await logEmail({ recipient: to, subject, emailType, status: 'sent', relatedWaitlistId, relatedBookingId })
     return { sent: true }
   } catch (error) {
@@ -49,6 +70,101 @@ export async function sendEmail({ to, subject, html, emailType, relatedWaitlistI
     await logEmail({ recipient: to, subject, emailType, status: 'failed', errorMessage: error.message, relatedWaitlistId, relatedBookingId })
     return { sent: false }
   }
+}
+
+function bookingConfirmationHtml({ booking, services = [] }) {
+  const privacyUrl = `${env.FRONTEND_URL.replace(/\/+$/, '')}/privacy-policy`
+  const termsUrl = `${env.FRONTEND_URL.replace(/\/+$/, '')}/terms-of-use`
+  return `
+    <div style="font-family:Georgia,serif;background:#F5F0EA;padding:32px;color:#372418;">
+      <div style="max-width:560px;margin:0 auto;background:#F8F3ED;border-radius:18px;padding:32px;">
+        <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Booking confirmed</p>
+        <h1 style="font-size:28px;font-weight:500;margin:0 0 16px;">Your Allay House session is booked.</h1>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Hello ${escapeHtml(booking.customer_name)}, your booking details are confirmed below. Please contact Allay House if anything looks incorrect.</p>
+        <div style="border:1px solid #DFD4C8;border-radius:14px;padding:18px;margin-bottom:18px;">
+          <p><strong>Reference:</strong> ${escapeHtml(booking.booking_reference)}</p>
+          <p><strong>Date:</strong> ${escapeHtml(booking.appointment_date)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(String(booking.start_time).slice(0, 5))}</p>
+          <p><strong>Total duration:</strong> ${Number(booking.total_duration_minutes || 0)} minutes</p>
+          <p><strong>Total:</strong> ${formatCurrency(booking.total_amount)}</p>
+        </div>
+        <p style="font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:#7F6D5C;margin:0 0 8px;">Selected services</p>
+        <ul style="padding-left:18px;margin:0 0 18px;">${formatServices(services)}</ul>
+        <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">Please arrive a few minutes early so we can welcome you calmly. If you need to change your booking, contact Allay House using the details on the website.</p>
+        <p style="font-size:12px;line-height:1.6;margin:0;"><a href="${privacyUrl}" style="color:#5F4A3A;">Privacy Policy</a> / <a href="${termsUrl}" style="color:#5F4A3A;">Terms of Use</a></p>
+      </div>
+    </div>
+  `
+}
+
+function bookingConfirmationText({ booking, services = [] }) {
+  return `Your Allay House session is booked.
+
+Reference: ${booking.booking_reference}
+Name: ${booking.customer_name}
+Date: ${booking.appointment_date}
+Time: ${String(booking.start_time).slice(0, 5)}
+Duration: ${Number(booking.total_duration_minutes || 0)} minutes
+Total: ${formatCurrency(booking.total_amount)}
+
+Services:
+${textServices(services)}
+
+Please contact Allay House if any detail is incorrect.`
+}
+
+function adminBookingHtml({ booking, services = [] }) {
+  const adminUrl = `${env.FRONTEND_URL.replace(/\/+$/, '')}/allay-admin/bookings/${booking.id}`
+  return `
+    <div style="font-family:Arial,sans-serif;background:#F5F0EA;padding:28px;color:#372418;">
+      <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;padding:28px;">
+        <h1 style="margin:0 0 14px;">New Allay House booking</h1>
+        <p><strong>Reference:</strong> ${escapeHtml(booking.booking_reference)}</p>
+        <p><strong>Customer:</strong> ${escapeHtml(booking.customer_name)} / ${escapeHtml(booking.customer_email)} / ${escapeHtml(booking.customer_phone)}</p>
+        <p><strong>Date and time:</strong> ${escapeHtml(booking.appointment_date)} at ${escapeHtml(String(booking.start_time).slice(0, 5))}</p>
+        <p><strong>Total:</strong> ${formatCurrency(booking.total_amount)}</p>
+        ${booking.customer_note ? `<p><strong>Customer note:</strong> ${escapeHtml(booking.customer_note)}</p>` : ''}
+        <ul>${formatServices(services)}</ul>
+        <p><a href="${adminUrl}">Open booking in admin</a></p>
+      </div>
+    </div>
+  `
+}
+
+function adminBookingText({ booking, services = [] }) {
+  return `New Allay House booking
+
+Reference: ${booking.booking_reference}
+Customer: ${booking.customer_name} / ${booking.customer_email} / ${booking.customer_phone}
+Date and time: ${booking.appointment_date} at ${String(booking.start_time).slice(0, 5)}
+Total: ${formatCurrency(booking.total_amount)}
+Customer note: ${booking.customer_note || '-'}
+
+Services:
+${textServices(services)}`
+}
+
+export async function sendBookingEmails({ booking, services = [] }) {
+  const customerEmail = await sendEmail({
+    to: booking.customer_email,
+    subject: `Allay House booking confirmed: ${booking.booking_reference}`,
+    html: bookingConfirmationHtml({ booking, services }),
+    text: bookingConfirmationText({ booking, services }),
+    emailType: 'booking_confirmation',
+    relatedBookingId: booking.id,
+  })
+
+  const adminRecipient = env.ADMIN_EMAIL || env.ADMIN_NOTIFICATION_EMAIL
+  const adminEmail = adminRecipient ? await sendEmail({
+    to: adminRecipient,
+    subject: `New Allay House booking: ${booking.booking_reference}`,
+    html: adminBookingHtml({ booking, services }),
+    text: adminBookingText({ booking, services }),
+    emailType: 'booking_admin_notification',
+    relatedBookingId: booking.id,
+  }) : { sent: false }
+
+  return { customer: customerEmail.sent, admin: adminEmail.sent }
 }
 
 function waitlistConfirmationHtml({ services }) {

@@ -213,8 +213,10 @@ export default function Booking() {
       customerNote: booking.note,
     })
       .then((data) => {
-        toast.success('Your booking request is ready for confirmation.')
-        navigate('/booking-success', { state: { reference: data.bookingReference || generateBookingReference(), services: booking.services, date: booking.date, time: booking.time } })
+        const confirmation = data.confirmation || { reference: data.bookingReference || generateBookingReference(), services: booking.services, date: booking.date, time: booking.time, customer: booking.customer, emailSent: data.emailStatus?.customer }
+        sessionStorage.setItem('allay:lastBookingConfirmation', JSON.stringify(confirmation))
+        toast.success(confirmation.emailSent ? 'Your booking is confirmed and the email is on its way.' : 'Your booking is confirmed. Please save your reference.')
+        navigate('/booking-success', { state: { confirmation } })
       })
       .catch((error) => {
         const data = error.response?.data
