@@ -1,5 +1,0 @@
-﻿This is a placeholder for service-lash-lift.jpg.
-Replace this TXT file with the real image named exactly: service-lash-lift.jpg
-The frontend code references: /images/allay/services/service-lash-lift.jpg
-Use JPG format.
-Recommended size: 1200x800.

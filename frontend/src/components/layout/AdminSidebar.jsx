@@ -6,6 +6,7 @@ import Brand from '../common/Brand'
 const iconsByPath = {
   '/allay-admin': LayoutDashboard,
   '/allay-admin/bookings': CalendarCheck,
+  '/allay-admin/users': Users,
   '/allay-admin/customers': UserRound,
   '/allay-admin/availability': Clock,
   '/allay-admin/services': Sparkles,

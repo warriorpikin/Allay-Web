@@ -26,7 +26,7 @@ export default function Customers() {
         setCustomers(data.customers || [])
         setPagination(data.pagination || { page, limit: pageSize, total: 0 })
       })
-      .catch(() => toast.error('Could not load registered customers.'))
+      .catch(() => toast.error('Could not load customers.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -49,7 +49,7 @@ export default function Customers() {
 
   return <>
     <div className="admin-page-heading">
-      <div><span className="eyebrow">Registered users</span><h1>Customers</h1><p>View people who created Allay House customer accounts.</p></div>
+      <div><span className="eyebrow">Booked clients</span><h1>Customers</h1><p>People with booking history, including upcoming, completed, cancelled, paid, and pending appointments.</p></div>
     </div>
 
     <section className="admin-panel">
@@ -58,7 +58,7 @@ export default function Customers() {
         <Button type="submit">Search</Button>
       </form>
 
-      {loading ? <Loader label="Loading customers" /> : !customers.length ? <EmptyState title="No registered customers" message="Customer accounts will appear here after sign-up." /> : <div className="table-wrap">
+      {loading ? <Loader label="Loading customers" /> : !customers.length ? <EmptyState title="No customers yet" message="People appear here after they make a booking." /> : <div className="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Last login</th><th>Bookings</th><th>Status</th><th /></tr></thead>
           <tbody>

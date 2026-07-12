@@ -1,0 +1,2207 @@
+diff --git a/backend/.env.example b/backend/.env.example
+index 0740556..1e8adbc 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -17,6 +17,7 @@ INITIAL_ADMIN_PASSWORD=replace-with-a-strong-password
+ 
+ # Phase 2+
+ RESEND_API_KEY=
++RESEND_FROM_EMAIL=Allay House <hello@allayhouse.com>
+ EMAIL_FROM=Allay House <hello@allayhouse.com>
+ ADMIN_EMAIL=
+ ADMIN_NOTIFICATION_EMAIL=
+@@ -34,7 +35,6 @@ WAITLIST_LAUNCH_COUPON_CODE=ALLAYEARLY
+ WAITLIST_LAUNCH_DISCOUNT_TYPE=percent
+ WAITLIST_LAUNCH_DISCOUNT_VALUE=15
+ 
+-# Phase 6. Values intentionally remain blank until a gateway is selected.
+-PAYMENT_GATEWAY=none
++PAYSTACK_PUBLIC_KEY=
+ PAYSTACK_SECRET_KEY=
+-FLUTTERWAVE_SECRET_KEY=
++PAYSTACK_WEBHOOK_SECRET=
+diff --git a/backend/src/app.js b/backend/src/app.js
+index 95f3c2d..ec9dfe5 100644
+--- a/backend/src/app.js
++++ b/backend/src/app.js
+@@ -1,6 +1,8 @@
+ import cors from 'cors'
+ import express from 'express'
+ import helmet from 'helmet'
++import path from 'node:path'
++import { fileURLToPath } from 'node:url'
+ import { env } from './config/env.js'
+ import { query } from './config/database.js'
+ import { errorHandler, notFound } from './middleware/errorHandler.js'
+@@ -12,6 +14,8 @@ import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
+ import adminServiceRoutes from './routes/adminServiceRoutes.js'
+ import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
+ import adminTestimonialRoutes from './routes/adminTestimonialRoutes.js'
++import adminUploadRoutes from './routes/adminUploadRoutes.js'
++import adminUserRoutes from './routes/adminUserRoutes.js'
+ import adminWaitlistRoutes from './routes/adminWaitlistRoutes.js'
+ import availabilityRoutes from './routes/availabilityRoutes.js'
+ import bookingRoutes from './routes/bookingRoutes.js'
+@@ -24,6 +28,8 @@ import testimonialRoutes from './routes/testimonialRoutes.js'
+ import waitlistRoutes from './routes/waitlistRoutes.js'
+ 
+ const app = express()
++const __dirname = path.dirname(fileURLToPath(import.meta.url))
++const uploadsDir = path.resolve(__dirname, '../../uploads')
+ const allowedOrigins = new Set([
+   env.FRONTEND_URL,
+   'http://localhost:5173',
+@@ -40,6 +46,10 @@ app.use(cors({
+   credentials: true,
+ }))
+ app.use(express.json({ limit: '4mb' }))
++app.use('/uploads', express.static(uploadsDir, {
++  fallthrough: true,
++  maxAge: env.NODE_ENV === 'production' ? '7d' : 0,
++}))
+ 
+ app.get('/api/health', async (req, res, next) => {
+   try {
+@@ -58,6 +68,8 @@ app.use('/api/admin/dashboard', adminDashboardRoutes)
+ app.use('/api/admin/services', adminServiceRoutes)
+ app.use('/api/admin/settings', adminSettingsRoutes)
+ app.use('/api/admin/testimonials', adminTestimonialRoutes)
++app.use('/api/admin/uploads', adminUploadRoutes)
++app.use('/api/admin/users', adminUserRoutes)
+ app.use('/api/admin/waitlist', adminWaitlistRoutes)
+ app.use('/api/availability', availabilityRoutes)
+ app.use('/api/bookings', bookingRoutes)
+diff --git a/backend/src/config/cloudinary.js b/backend/src/config/cloudinary.js
+index ff2dcac..646ccb4 100644
+--- a/backend/src/config/cloudinary.js
++++ b/backend/src/config/cloudinary.js
+@@ -12,4 +12,13 @@ export function hasCloudinaryConfig() {
+   return Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET)
+ }
+ 
++export function getCloudinaryConfigStatus() {
++  return {
++    cloudName: Boolean(env.CLOUDINARY_CLOUD_NAME),
++    apiKey: Boolean(env.CLOUDINARY_API_KEY),
++    apiSecret: Boolean(env.CLOUDINARY_API_SECRET),
++    configured: hasCloudinaryConfig(),
++  }
++}
++
+ export { cloudinary }
+diff --git a/backend/src/config/env.js b/backend/src/config/env.js
+index 66801a9..c941270 100644
+--- a/backend/src/config/env.js
++++ b/backend/src/config/env.js
+@@ -1,21 +1,40 @@
+-import 'dotenv/config'
++import dotenv from 'dotenv'
++import path from 'node:path'
++import { fileURLToPath } from 'node:url'
+ import { z } from 'zod'
+ 
++const __dirname = path.dirname(fileURLToPath(import.meta.url))
++dotenv.config({ path: path.resolve(__dirname, '../../.env') })
++
++function cleanEnvString(value) {
++  if (typeof value !== 'string') return value
++  const trimmed = value.trim()
++  const quoted = (trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))
++  return quoted ? trimmed.slice(1, -1).trim() : trimmed
++}
++
++const envString = (validator = z.string()) => z.preprocess(cleanEnvString, validator)
++const optionalEnvString = z.preprocess((value) => cleanEnvString(value) || '', z.string().optional().default(''))
++
+ const schema = z.object({
+   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+   PORT: z.coerce.number().int().positive().default(5000),
+-  FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
++  FRONTEND_URL: envString(z.string().url()).default('http://localhost:5173'),
++  DATABASE_URL: envString(z.string().min(1, 'DATABASE_URL is required')),
+   DATABASE_SSL: z.enum(['true', 'false']).default('false'),
+-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+-  JWT_EXPIRES_IN: z.string().default('8h'),
+-  RESEND_API_KEY: z.string().optional().default(''),
+-  EMAIL_FROM: z.string().optional().default('Allay House <hello@allayhouse.com>'),
+-  ADMIN_EMAIL: z.string().optional().default(''),
+-  ADMIN_NOTIFICATION_EMAIL: z.string().optional().default(''),
+-  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+-  CLOUDINARY_API_KEY: z.string().optional().default(''),
+-  CLOUDINARY_API_SECRET: z.string().optional().default(''),
++  JWT_SECRET: envString(z.string().min(32, 'JWT_SECRET must be at least 32 characters')),
++  JWT_EXPIRES_IN: envString().default('8h'),
++  RESEND_API_KEY: optionalEnvString,
++  RESEND_FROM_EMAIL: optionalEnvString,
++  EMAIL_FROM: optionalEnvString,
++  ADMIN_EMAIL: optionalEnvString,
++  ADMIN_NOTIFICATION_EMAIL: optionalEnvString,
++  CLOUDINARY_CLOUD_NAME: optionalEnvString,
++  CLOUDINARY_API_KEY: optionalEnvString,
++  CLOUDINARY_API_SECRET: optionalEnvString,
++  PAYSTACK_PUBLIC_KEY: optionalEnvString,
++  PAYSTACK_SECRET_KEY: optionalEnvString,
++  PAYSTACK_WEBHOOK_SECRET: optionalEnvString,
+   WAITLIST_LAUNCH_COUPON_CODE: z.string().optional().default('ALLAYEARLY'),
+   WAITLIST_LAUNCH_DISCOUNT_TYPE: z.enum(['percent', 'fixed']).optional().default('percent'),
+   WAITLIST_LAUNCH_DISCOUNT_VALUE: z.coerce.number().optional().default(15),
+@@ -28,4 +47,7 @@ if (!result.success) {
+   process.exit(1)
+ }
+ 
+-export const env = result.data
++export const env = {
++  ...result.data,
++  EMAIL_FROM: result.data.RESEND_FROM_EMAIL || result.data.EMAIL_FROM || 'Allay House <hello@allayhouse.com>',
++}
+diff --git a/backend/src/controllers/adminBookingController.js b/backend/src/controllers/adminBookingController.js
+index e97162e..700fab3 100644
+--- a/backend/src/controllers/adminBookingController.js
++++ b/backend/src/controllers/adminBookingController.js
+@@ -7,12 +7,16 @@ const paymentStatusSchema = z.object({ paymentStatus: z.enum(['unpaid', 'paid',
+ export async function listAdminBookings(req, res, next) {
+   try {
+     const result = await query(
+-      `SELECT id, booking_reference AS "bookingReference", customer_name AS "customerName", customer_email AS "customerEmail",
+-        customer_phone AS "customerPhone", status, payment_status AS "paymentStatus", appointment_date AS "appointmentDate",
+-        start_time AS "startTime", end_time AS "endTime", total_duration_minutes AS "totalDurationMinutes",
+-        subtotal, discount_amount AS "discountAmount", total_amount AS "totalAmount", created_at AS "createdAt"
+-       FROM bookings
+-       ORDER BY appointment_date DESC, start_time DESC
++      `SELECT b.id, b.booking_reference AS "bookingReference", b.customer_name AS "customerName", b.customer_email AS "customerEmail",
++        b.customer_phone AS "customerPhone", b.status, b.payment_status AS "paymentStatus", b.appointment_date AS "appointmentDate",
++        b.start_time AS "startTime", b.end_time AS "endTime", b.total_duration_minutes AS "totalDurationMinutes",
++        b.subtotal, b.discount_amount AS "discountAmount", b.total_amount AS "totalAmount", b.customer_note AS "customerNote",
++        b.admin_note AS "adminNote", b.updated_at AS "updatedAt", b.created_at AS "createdAt",
++        COALESCE(STRING_AGG(bs.service_name, ', ' ORDER BY bs.created_at ASC), '') AS "serviceNames"
++       FROM bookings b
++       LEFT JOIN booking_services bs ON bs.booking_id = b.id
++       GROUP BY b.id
++       ORDER BY b.appointment_date DESC, b.start_time DESC
+        LIMIT 200`,
+     )
+     res.json({ bookings: result.rows })
+diff --git a/backend/src/controllers/adminCustomerController.js b/backend/src/controllers/adminCustomerController.js
+index a0cb840..2848fdc 100644
+--- a/backend/src/controllers/adminCustomerController.js
++++ b/backend/src/controllers/adminCustomerController.js
+@@ -8,6 +8,7 @@ const listSchema = z.object({
+ })
+ 
+ function mapCustomer(row) {
++  const bookingCount = Number(row.booking_count || 0)
+   return {
+     id: row.id,
+     fullName: row.full_name,
+@@ -16,7 +17,8 @@ function mapCustomer(row) {
+     status: row.status || 'active',
+     createdAt: row.created_at,
+     lastLoginAt: row.last_login_at,
+-    bookingCount: Number(row.booking_count || 0),
++    hasBooked: bookingCount > 0,
++    bookingCount,
+     latestBookingAt: row.latest_booking_at,
+     waitlistStatus: row.waitlist_status,
+   }
+@@ -46,11 +48,12 @@ export async function listAdminCustomers(req, res, next) {
+          LEFT JOIN waitlist_entries w ON LOWER(w.email) = LOWER(c.email)
+          ${where}
+          GROUP BY c.id
++         HAVING COUNT(DISTINCT b.id) > 0
+          ORDER BY c.created_at DESC
+          LIMIT $${search ? 2 : 1} OFFSET $${search ? 3 : 2}`,
+         params,
+       ),
+-      query(`SELECT COUNT(*)::int AS total FROM customers c ${where}`, countParams),
++      query(`SELECT COUNT(DISTINCT c.id)::int AS total FROM customers c JOIN bookings b ON b.customer_id = c.id ${where}`, countParams),
+     ])
+ 
+     return res.json({
+@@ -73,7 +76,8 @@ export async function getAdminCustomer(req, res, next) {
+        LEFT JOIN bookings b ON b.customer_id = c.id
+        LEFT JOIN waitlist_entries w ON LOWER(w.email) = LOWER(c.email)
+        WHERE c.id = $1
+-       GROUP BY c.id`,
++       GROUP BY c.id
++       HAVING COUNT(DISTINCT b.id) > 0`,
+       [req.params.id],
+     )
+     if (!result.rows[0]) return res.status(404).json({ message: 'Customer not found.' })
+diff --git a/backend/src/controllers/serviceController.js b/backend/src/controllers/serviceController.js
+index 748fbeb..756e11a 100644
+--- a/backend/src/controllers/serviceController.js
++++ b/backend/src/controllers/serviceController.js
+@@ -2,6 +2,14 @@ import { z } from 'zod'
+ import { query } from '../config/database.js'
+ import { removeStoredImage, saveUploadedImage } from '../services/imageStorageService.js'
+ 
++function formBoolean(defaultValue) {
++  return z.preprocess((value) => {
++    if (value === undefined || value === null || value === '') return defaultValue
++    if (typeof value === 'string') return value === 'true' || value === '1' || value === 'on'
++    return value
++  }, z.boolean())
++}
++
+ const servicePayloadSchema = z.object({
+   categoryId: z.string().uuid(),
+   name: z.string().trim().min(2),
+@@ -10,9 +18,9 @@ const servicePayloadSchema = z.object({
+   durationMinutes: z.coerce.number().int().min(5),
+   price: z.coerce.number().min(0),
+   imageUrl: z.string().trim().optional().default(''),
+-  isActive: z.coerce.boolean().default(true),
+-  bookable: z.coerce.boolean().default(true),
+-  isDiscountEligible: z.coerce.boolean().default(true),
++  isActive: formBoolean(true),
++  bookable: formBoolean(true),
++  isDiscountEligible: formBoolean(true),
+   simultaneousCapacity: z.coerce.number().int().min(1).default(7),
+   displayOrder: z.coerce.number().int().min(0).default(0),
+ })
+@@ -38,7 +46,7 @@ function mapService(row) {
+     image: row.image_url || row.local_image_path,
+     imageUrl: row.image_url,
+     localImagePath: row.local_image_path,
+-    imagePublicId: row.image_public_id,
++    imagePublicId: row.image_public_id || row.image_storage_key,
+     isActive: row.is_active,
+     bookable: row.bookable !== false,
+     isDiscountEligible: row.is_discount_eligible,
+@@ -130,7 +138,7 @@ export async function createAdminService(req, res, next) {
+     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'services', slugPrefix: slug, req }) : null
+ 
+     const result = await query(
+-      `INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, local_image_path, image_public_id,
++      `INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, local_image_path, image_storage_key,
+         is_active, bookable, is_discount_eligible, simultaneous_capacity, display_order)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING *`,
+@@ -167,16 +175,16 @@ export async function updateAdminService(req, res, next) {
+     if (!parsed.success) return res.status(400).json({ message: 'Enter valid service details.' })
+     const slug = slugify(parsed.data.slug || parsed.data.name)
+     if (!slug) return res.status(400).json({ message: 'Enter a valid service name or slug.' })
+-    const current = await query('SELECT image_public_id, image_url, local_image_path FROM services WHERE id = $1', [req.params.id])
++    const current = await query('SELECT image_storage_key AS image_public_id, image_url, local_image_path FROM services WHERE id = $1', [req.params.id])
+     if (!current.rows[0]) return res.status(404).json({ message: 'Service not found.' })
+     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'services', slugPrefix: slug, req }) : null
+ 
+     const result = await query(
+       `UPDATE services
+        SET category_id = $1, name = $2, slug = $3, description = $4, duration_minutes = $5, price = $6,
+-        image_url = COALESCE($7, image_url), local_image_path = COALESCE($8, local_image_path), image_public_id = COALESCE($9, image_public_id), is_active = $10,
+-        bookable = $11, is_discount_eligible = $12, simultaneous_capacity = $13, display_order = $14
+-       WHERE id = $15
++        image_url = COALESCE($7, image_url), local_image_path = CASE WHEN $7 IS NULL THEN local_image_path ELSE NULL END, image_storage_key = COALESCE($8, image_storage_key), is_active = $9,
++        bookable = $10, is_discount_eligible = $11, simultaneous_capacity = $12, display_order = $13
++       WHERE id = $14
+        RETURNING *`,
+       [
+         parsed.data.categoryId,
+@@ -186,7 +194,6 @@ export async function updateAdminService(req, res, next) {
+         parsed.data.durationMinutes,
+         parsed.data.price,
+         uploadedImage?.url || null,
+-        uploadedImage ? null : null,
+         uploadedImage?.publicId || null,
+         parsed.data.isActive,
+         parsed.data.bookable,
+@@ -209,7 +216,7 @@ export async function updateAdminService(req, res, next) {
+ 
+ export async function deleteAdminService(req, res, next) {
+   try {
+-    const result = await query('DELETE FROM services WHERE id = $1 RETURNING id, image_public_id', [req.params.id])
++    const result = await query('DELETE FROM services WHERE id = $1 RETURNING id, image_storage_key AS image_public_id', [req.params.id])
+     if (!result.rows[0]) return res.status(404).json({ message: 'Service not found.' })
+     await removeStoredImage(result.rows[0].image_public_id)
+     return res.status(204).send()
+diff --git a/backend/src/controllers/testimonialController.js b/backend/src/controllers/testimonialController.js
+index 7ea6db5..076503c 100644
+--- a/backend/src/controllers/testimonialController.js
++++ b/backend/src/controllers/testimonialController.js
+@@ -2,13 +2,21 @@ import { z } from 'zod'
+ import { query } from '../config/database.js'
+ import { removeStoredImage, saveUploadedImage } from '../services/imageStorageService.js'
+ 
++function formBoolean(defaultValue) {
++  return z.preprocess((value) => {
++    if (value === undefined || value === null || value === '') return defaultValue
++    if (typeof value === 'string') return value === 'true' || value === '1' || value === 'on'
++    return value
++  }, z.boolean())
++}
++
+ const testimonialSchema = z.object({
+   customerName: z.string().trim().min(2),
+   customerRole: z.string().trim().optional().default(''),
+   profileImageUrl: z.string().trim().optional().default(''),
+   testimonialText: z.string().trim().min(8),
+   rating: z.coerce.number().min(1).max(5).refine((value) => Number.isInteger(value * 2), 'Rating must use half-point increments.').default(5),
+-  isActive: z.coerce.boolean().default(true),
++  isActive: formBoolean(true),
+   displayOrder: z.coerce.number().int().min(0).default(0),
+ })
+ 
+@@ -19,7 +27,7 @@ function mapTestimonial(row) {
+     customerRole: row.customer_role,
+     profileImageUrl: row.image_url || row.profile_image_url,
+     imageUrl: row.image_url || row.profile_image_url,
+-    imagePublicId: row.image_public_id,
++    imagePublicId: row.image_public_id || row.profile_image_storage_key,
+     testimonialText: row.testimonial_text,
+     rating: Number(row.rating || 5),
+     isActive: row.is_active,
+@@ -63,14 +71,13 @@ export async function createAdminTestimonial(req, res, next) {
+     if (!parsed.success) return res.status(400).json({ message: 'Enter valid testimonial details.' })
+     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'testimonials', slugPrefix: parsed.data.customerName, req }) : null
+     const result = await query(
+-      `INSERT INTO testimonials (customer_name, customer_role, profile_image_url, image_url, image_public_id, testimonial_text, rating, is_active, display_order)
+-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
++      `INSERT INTO testimonials (customer_name, customer_role, profile_image_url, profile_image_storage_key, testimonial_text, rating, is_active, display_order)
++       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *`,
+       [
+         parsed.data.customerName,
+         parsed.data.customerRole || null,
+         uploadedImage?.url || parsed.data.profileImageUrl || null,
+-        uploadedImage?.url || parsed.data.profileImageUrl || null,
+         uploadedImage?.publicId || null,
+         parsed.data.testimonialText,
+         parsed.data.rating,
+@@ -90,12 +97,12 @@ export async function updateAdminTestimonial(req, res, next) {
+   try {
+     const parsed = testimonialSchema.safeParse(req.body)
+     if (!parsed.success) return res.status(400).json({ message: 'Enter valid testimonial details.' })
+-    const current = await query('SELECT image_public_id FROM testimonials WHERE id = $1', [req.params.id])
++    const current = await query('SELECT profile_image_storage_key AS image_public_id FROM testimonials WHERE id = $1', [req.params.id])
+     if (!current.rows[0]) return res.status(404).json({ message: 'Testimonial not found.' })
+     uploadedImage = req.file ? await saveUploadedImage(req.file, { folder: 'testimonials', slugPrefix: parsed.data.customerName, req }) : null
+     const result = await query(
+       `UPDATE testimonials
+-       SET customer_name = $1, customer_role = $2, profile_image_url = COALESCE($3, profile_image_url), image_url = COALESCE($3, image_url), image_public_id = COALESCE($4, image_public_id),
++       SET customer_name = $1, customer_role = $2, profile_image_url = COALESCE($3, profile_image_url), profile_image_storage_key = COALESCE($4, profile_image_storage_key),
+         testimonial_text = $5, rating = $6, is_active = $7, display_order = $8
+        WHERE id = $9
+        RETURNING *`,
+@@ -122,7 +129,7 @@ export async function updateAdminTestimonial(req, res, next) {
+ 
+ export async function deleteAdminTestimonial(req, res, next) {
+   try {
+-    const result = await query('DELETE FROM testimonials WHERE id = $1 RETURNING id, image_public_id', [req.params.id])
++    const result = await query('DELETE FROM testimonials WHERE id = $1 RETURNING id, profile_image_storage_key AS image_public_id', [req.params.id])
+     if (!result.rows[0]) return res.status(404).json({ message: 'Testimonial not found.' })
+     await removeStoredImage(result.rows[0].image_public_id)
+     return res.status(204).send()
+diff --git a/backend/src/db/migrations/005_admin_uploads_customers_service_seed.sql b/backend/src/db/migrations/005_admin_uploads_customers_service_seed.sql
+index 80c748d..6ff3e6d 100644
+--- a/backend/src/db/migrations/005_admin_uploads_customers_service_seed.sql
++++ b/backend/src/db/migrations/005_admin_uploads_customers_service_seed.sql
+@@ -5,17 +5,12 @@ ALTER TABLE customers
+   ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'active';
+ 
+ ALTER TABLE services
+-  ADD COLUMN IF NOT EXISTS image_public_id TEXT,
++  ADD COLUMN IF NOT EXISTS image_storage_key TEXT,
+   ADD COLUMN IF NOT EXISTS bookable BOOLEAN NOT NULL DEFAULT TRUE;
+ 
+ ALTER TABLE testimonials
+   ADD COLUMN IF NOT EXISTS customer_role VARCHAR(160),
+-  ADD COLUMN IF NOT EXISTS image_url TEXT,
+-  ADD COLUMN IF NOT EXISTS image_public_id TEXT;
+-
+-UPDATE testimonials
+-SET image_url = COALESCE(image_url, profile_image_url)
+-WHERE profile_image_url IS NOT NULL;
++  ADD COLUMN IF NOT EXISTS profile_image_storage_key TEXT;
+ 
+ ALTER TABLE testimonials
+   ALTER COLUMN rating TYPE NUMERIC(2,1) USING rating::numeric,
+@@ -51,19 +46,19 @@ ON CONFLICT (slug) DO UPDATE SET
+ 
+ INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, is_active, is_discount_eligible, simultaneous_capacity, display_order)
+ VALUES
+-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, '/images/allay/services/service-glow-facial.jpg', TRUE, TRUE, 7, 1),
+-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, '/images/allay/services/service-hydrating-facial.jpg', TRUE, TRUE, 7, 2),
+-  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, '/images/allay/services/service-deep-tissue-massage.jpg', TRUE, TRUE, 7, 3),
+-  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, '/images/allay/services/service-sauna-session.jpg', TRUE, TRUE, 7, 4),
+-  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, '/images/allay/services/service-headspa-treatment.jpg', TRUE, TRUE, 7, 5),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, '/images/allay/services/service-group-pilates.jpg', TRUE, TRUE, 7, 6),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, '/images/allay/services/service-brow-shaping.jpg', TRUE, TRUE, 7, 7),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, '/images/allay/services/service-lash-lift.jpg', TRUE, TRUE, 7, 8),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, '/images/allay/services/service-hair-styling.jpg', TRUE, TRUE, 7, 9),
+-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, '/images/allay/services/service-hair-braiding.jpg', TRUE, TRUE, 7, 10),
+-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, '/images/allay/services/service-wig-styling.jpg', TRUE, TRUE, 7, 11),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, '/images/allay/services/service-classic-manicure.jpg', TRUE, TRUE, 7, 12),
+-  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, '/images/allay/placeholders/placeholder-service.jpg', TRUE, TRUE, 7, 13)
++  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, NULL, TRUE, TRUE, 7, 1),
++  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, NULL, TRUE, TRUE, 7, 2),
++  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, NULL, TRUE, TRUE, 7, 3),
++  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, NULL, TRUE, TRUE, 7, 4),
++  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, NULL, TRUE, TRUE, 7, 5),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, NULL, TRUE, TRUE, 7, 6),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, NULL, TRUE, TRUE, 7, 7),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, NULL, TRUE, TRUE, 7, 8),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, NULL, TRUE, TRUE, 7, 9),
++  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, NULL, TRUE, TRUE, 7, 10),
++  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, NULL, TRUE, TRUE, 7, 11),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, NULL, TRUE, TRUE, 7, 12),
++  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, NULL, TRUE, TRUE, 7, 13)
+ ON CONFLICT (slug) DO UPDATE SET
+   category_id = COALESCE(services.category_id, EXCLUDED.category_id),
+   image_url = COALESCE(services.image_url, EXCLUDED.image_url),
+diff --git a/backend/src/db/seeds/001_booking_foundation.sql b/backend/src/db/seeds/001_booking_foundation.sql
+index 128532a..5fe411a 100644
+--- a/backend/src/db/seeds/001_booking_foundation.sql
++++ b/backend/src/db/seeds/001_booking_foundation.sql
+@@ -20,19 +20,19 @@ ON CONFLICT (slug) DO UPDATE SET
+ 
+ INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, is_active, is_discount_eligible, simultaneous_capacity, display_order)
+ VALUES
+-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, '/images/allay/services/service-glow-facial.jpg', TRUE, TRUE, 7, 1),
+-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, '/images/allay/services/service-hydrating-facial.jpg', TRUE, TRUE, 7, 2),
+-  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, '/images/allay/services/service-deep-tissue-massage.jpg', TRUE, TRUE, 7, 3),
+-  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, '/images/allay/services/service-sauna-session.jpg', TRUE, TRUE, 7, 4),
+-  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, '/images/allay/services/service-headspa-treatment.jpg', TRUE, TRUE, 7, 5),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, '/images/allay/services/service-group-pilates.jpg', TRUE, TRUE, 7, 6),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, '/images/allay/services/service-brow-shaping.jpg', TRUE, TRUE, 7, 7),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, '/images/allay/services/service-lash-lift.jpg', TRUE, TRUE, 7, 8),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, '/images/allay/services/service-hair-styling.jpg', TRUE, TRUE, 7, 9),
+-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, '/images/allay/services/service-hair-braiding.jpg', TRUE, TRUE, 7, 10),
+-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, '/images/allay/services/service-wig-styling.jpg', TRUE, TRUE, 7, 11),
+-  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, '/images/allay/services/service-classic-manicure.jpg', TRUE, TRUE, 7, 12),
+-  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, '/images/allay/services/body-scrub-polish.jpg', TRUE, TRUE, 7, 13)
++  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, NULL, TRUE, TRUE, 7, 1),
++  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, NULL, TRUE, TRUE, 7, 2),
++  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, NULL, TRUE, TRUE, 7, 3),
++  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, NULL, TRUE, TRUE, 7, 4),
++  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, NULL, TRUE, TRUE, 7, 5),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, NULL, TRUE, TRUE, 7, 6),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, NULL, TRUE, TRUE, 7, 7),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, NULL, TRUE, TRUE, 7, 8),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, NULL, TRUE, TRUE, 7, 9),
++  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, NULL, TRUE, TRUE, 7, 10),
++  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, NULL, TRUE, TRUE, 7, 11),
++  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, NULL, TRUE, TRUE, 7, 12),
++  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, NULL, TRUE, TRUE, 7, 13)
+ ON CONFLICT (slug) DO UPDATE SET
+   category_id = COALESCE(services.category_id, EXCLUDED.category_id),
+   name = COALESCE(services.name, EXCLUDED.name),
+diff --git a/backend/src/middleware/authenticateAdmin.js b/backend/src/middleware/authenticateAdmin.js
+index 45974a4..02f04e0 100644
+--- a/backend/src/middleware/authenticateAdmin.js
++++ b/backend/src/middleware/authenticateAdmin.js
+@@ -3,13 +3,12 @@ import { env } from '../config/env.js'
+ 
+ export function authenticateAdmin(req, res, next) {
+   const [scheme, token] = (req.headers.authorization || '').split(' ')
+-  if (scheme !== 'Bearer' || !token) return res.status(401).json({ message: 'Admin authentication required.' })
++  if (scheme !== 'Bearer' || !token) return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', message: 'Admin authentication required.' })
+ 
+   try {
+     req.admin = jwt.verify(token, env.JWT_SECRET)
+     return next()
+   } catch {
+-    return res.status(401).json({ message: 'Your session is invalid or has expired.' })
++    return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', message: 'Your session is invalid or has expired.' })
+   }
+ }
+-
+diff --git a/backend/src/middleware/errorHandler.js b/backend/src/middleware/errorHandler.js
+index c772de1..1ba7912 100644
+--- a/backend/src/middleware/errorHandler.js
++++ b/backend/src/middleware/errorHandler.js
+@@ -1,14 +1,21 @@
+ export function notFound(req, res) {
+-  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` })
++  res.status(404).json({ success: false, code: 'ROUTE_NOT_FOUND', message: `Route not found: ${req.method} ${req.originalUrl}` })
+ }
+ 
+ export function errorHandler(error, req, res, next) {
+   if (res.headersSent) return next(error)
+-  console.error(error)
++  const status = error.status || 500
++  const code = error.appCode || (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code) || error.severity ? 'DATABASE_ERROR' : status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR')
++  if (process.env.NODE_ENV !== 'production') {
++    console.error(`[api-error] ${req.method} ${req.originalUrl} ${status} ${code}: ${error.message}`)
++    if (status >= 500 && error.stack) console.error(error.stack)
++  }
+   if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error.code)) {
+-    return res.status(503).json({ message: 'Cannot connect to database. Check DATABASE_URL and database availability.' })
++    return res.status(503).json({ success: false, code: 'DATABASE_ERROR', message: 'Cannot connect to database. Check DATABASE_URL and database availability.' })
+   }
+-  return res.status(error.status || 500).json({
++  return res.status(status).json({
++    success: false,
++    code,
+     message: error.status ? error.message : 'Something went wrong. Please try again.',
+   })
+ }
+diff --git a/backend/src/middleware/imageUpload.js b/backend/src/middleware/imageUpload.js
+index 59375c8..33dcc37 100644
+--- a/backend/src/middleware/imageUpload.js
++++ b/backend/src/middleware/imageUpload.js
+@@ -7,7 +7,10 @@ export const imageUpload = multer({
+   limits: { fileSize: 5_000_000, files: 1 },
+   fileFilter(req, file, callback) {
+     if (!allowedMimeTypes.has(file.mimetype)) {
+-      return callback(new Error('Please choose a valid JPG, PNG, or WebP image.'))
++      const error = new Error('Unsupported image format. Please choose a JPG, PNG, or WebP image.')
++      error.status = 415
++      error.appCode = 'INVALID_FILE_TYPE'
++      return callback(error)
+     }
+     return callback(null, true)
+   },
+@@ -16,7 +19,7 @@ export const imageUpload = multer({
+ export function handleImageUploadError(error, req, res, next) {
+   if (!error) return next()
+   if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+-    return res.status(400).json({ message: 'The selected image is too large. Please choose an image under 5MB.' })
++    return res.status(413).json({ success: false, code: 'FILE_TOO_LARGE', message: 'Image exceeds the maximum upload size of 5MB.' })
+   }
+-  return res.status(400).json({ message: error.message || 'The image upload failed. Please try another image.' })
++  return res.status(error.status || 400).json({ success: false, code: error.appCode || 'UPLOAD_FAILED', message: error.message || 'The image upload failed. Please try another image.' })
+ }
+diff --git a/backend/src/services/availabilityService.js b/backend/src/services/availabilityService.js
+index 6181af7..a302de3 100644
+--- a/backend/src/services/availabilityService.js
++++ b/backend/src/services/availabilityService.js
+@@ -191,11 +191,93 @@ export async function getAvailableTimeSlots(date, serviceIds = [], durationMinut
+     durationMinutes,
+   })
+ 
++  const ids = normalizeServiceIds(serviceIds)
++  const [bookingSettings, blockedPeriods, dailyOverride, allOverrides, bookings, services, serviceBookings] = await Promise.all([
++    getSetting('booking'),
++    getBlockedPeriodsForDate(date),
++    getCapacityOverride(date, null),
++    query('SELECT time_slot, max_bookings FROM booking_capacity_overrides WHERE date = $1', [date]),
++    query(
++      `SELECT id, start_time, end_time
++       FROM bookings
++       WHERE appointment_date = $1
++         AND status = ANY($2)`,
++      [date, ACTIVE_BOOKING_STATUSES],
++    ),
++    getServicesCapacity(ids),
++    ids.length
++      ? query(
++        `SELECT bs.service_id, b.start_time, b.end_time
++         FROM booking_services bs
++         JOIN bookings b ON b.id = bs.booking_id
++         WHERE bs.service_id = ANY($1::uuid[])
++           AND b.appointment_date = $2
++           AND b.status = ANY($3)`,
++        [ids, date, ACTIVE_BOOKING_STATUSES],
++      )
++      : Promise.resolve({ rows: [] }),
++  ])
++  const minimumNoticeMinutes = Math.max(Number(bookingSettings?.value?.minimum_notice_minutes) || 0, 0)
++  const threshold = new Date(Date.now() + minimumNoticeMinutes * 60_000)
++  const dailyLimit = dailyOverride ? Number(dailyOverride.max_bookings) : Number(hours.max_daily_bookings)
++  const timeOverrides = new Map(allOverrides.rows.filter((row) => row.time_slot).map((row) => [normalizeTime(row.time_slot), Number(row.max_bookings)]))
++  const bookingsForDate = bookings.rows
++  const serviceBookingsForDate = serviceBookings.rows
++  const serviceCapacities = new Map(services.map((service) => [service.id, { name: service.name, capacity: Number(service.simultaneous_capacity) }]))
++  const rangesOverlap = (startA, endA, startB, endB) => timeToMinutes(startA) < timeToMinutes(endB) && timeToMinutes(endA) > timeToMinutes(startB)
++
+   const checked = []
+   for (const time of slots) {
+     const endTime = addMinutesToTime(time, durationMinutes)
+-    const status = await checkSlotCapacity(date, time, endTime, serviceIds)
+-    checked.push({ time, available: status.available, reason: status.reason, message: status.message, remainingCapacity: status.remainingCapacity })
++    const target = new Date(`${date}T${normalizeTime(time)}:00.000Z`)
++    if (!Number.isNaN(target.getTime()) && target.getTime() < threshold.getTime()) {
++      checked.push({
++        time,
++        available: false,
++        reason: 'past',
++        message: minimumNoticeMinutes > 0 ? `Please choose a time at least ${minimumNoticeMinutes} minutes from now.` : 'This time has already passed. Please choose an upcoming time.',
++        remainingCapacity: 0,
++      })
++      continue
++    }
++
++    const blocked = blockedPeriods.find((period) => new Date(period.start_datetime) < new Date(`${date}T${normalizeTime(endTime)}:00.000Z`) && new Date(period.end_datetime) > new Date(`${date}T${normalizeTime(time)}:00.000Z`))
++    if (blocked) {
++      checked.push({ time, available: false, reason: 'blocked', message: 'Allay House is unavailable during this period.', remainingCapacity: 0 })
++      continue
++    }
++
++    if (bookingsForDate.length >= dailyLimit) {
++      checked.push({ time, available: false, reason: 'date_full', message: 'This date is fully booked. Please select another day.', remainingCapacity: 0 })
++      continue
++    }
++
++    const maxSlotBookings = timeOverrides.get(normalizeTime(time)) ?? Number(hours.max_bookings_per_slot)
++    const overlappingBookings = bookingsForDate.filter((booking) => rangesOverlap(time, endTime, booking.start_time, booking.end_time))
++    if (overlappingBookings.length >= maxSlotBookings) {
++      checked.push({ time, available: false, reason: 'time_full', message: 'This time is full.', remainingCapacity: 0 })
++      continue
++    }
++
++    let remainingCapacity = Math.max(maxSlotBookings - overlappingBookings.length, 0)
++    let serviceFull = null
++    for (const serviceId of ids) {
++      const service = serviceCapacities.get(serviceId)
++      if (!service) continue
++      const count = serviceBookingsForDate.filter((booking) => booking.service_id === serviceId && rangesOverlap(time, endTime, booking.start_time, booking.end_time)).length
++      const remainingForService = service.capacity - count
++      remainingCapacity = Math.min(remainingCapacity, Math.max(remainingForService, 0))
++      if (remainingForService <= 0) {
++        serviceFull = service
++        break
++      }
++    }
++    if (serviceFull) {
++      checked.push({ time, available: false, reason: 'service_full', message: `${serviceFull.name} is full at this time.`, remainingCapacity: 0 })
++      continue
++    }
++
++    checked.push({ time, available: true, reason: 'available', message: 'Available', remainingCapacity })
+   }
+   return checked
+ }
+@@ -217,20 +299,62 @@ export async function checkAvailability({ date, preferredTime, serviceIds = [],
+ export async function getAvailabilityDays({ month, year, serviceIds = [], durationMinutes = 30 }) {
+   const monthIndex = Number(month) - 1
+   const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate()
++  const startDate = new Date(Date.UTC(Number(year), monthIndex, 1)).toISOString().slice(0, 10)
++  const endDate = new Date(Date.UTC(Number(year), monthIndex, lastDay)).toISOString().slice(0, 10)
++  const today = new Date().toISOString().slice(0, 10)
+   const days = []
++  const [hoursResult, blockedResult, countsResult, dailyOverridesResult] = await Promise.all([
++    query('SELECT * FROM business_hours'),
++    query(
++      `SELECT *
++       FROM blocked_periods
++       WHERE start_datetime < ($2::date + INTERVAL '1 day')
++         AND end_datetime > $1::date
++       ORDER BY start_datetime ASC`,
++      [startDate, endDate],
++    ),
++    query(
++      `SELECT appointment_date::text AS date, COUNT(*)::int AS count
++       FROM bookings
++       WHERE appointment_date BETWEEN $1 AND $2
++         AND status = ANY($3)
++       GROUP BY appointment_date`,
++      [startDate, endDate, ACTIVE_BOOKING_STATUSES],
++    ),
++    query(
++      `SELECT date::text AS date, max_bookings
++       FROM booking_capacity_overrides
++       WHERE date BETWEEN $1 AND $2
++         AND time_slot IS NULL`,
++      [startDate, endDate],
++    ),
++  ])
++  const hoursByDay = new Map(hoursResult.rows.map((row) => [Number(row.day_of_week), row]))
++  const countsByDate = new Map(countsResult.rows.map((row) => [row.date, Number(row.count || 0)]))
++  const overridesByDate = new Map(dailyOverridesResult.rows.map((row) => [row.date, Number(row.max_bookings)]))
++
++  const blockedForDate = (date) => blockedResult.rows.find((period) => {
++    const start = new Date(period.start_datetime).getTime()
++    const end = new Date(period.end_datetime).getTime()
++    const dayStart = new Date(`${date}T00:00:00.000Z`).getTime()
++    const dayEnd = dayStart + 86_400_000
++    return start < dayEnd && end > dayStart
++  })
+ 
+   for (let day = 1; day <= lastDay; day += 1) {
+     const date = new Date(Date.UTC(Number(year), monthIndex, day)).toISOString().slice(0, 10)
+-    const hours = await getBusinessHoursForDate(date)
+-    const blocked = await isDateBlocked(date)
+-    const slots = !blocked.blocked && hours?.is_open ? await getAvailableTimeSlots(date, serviceIds, durationMinutes) : []
+-    const hasAvailableSlot = slots.some((slot) => slot.available)
++    const hours = hoursByDay.get(dayOfWeek(date))
++    const blockedPeriod = blockedForDate(date)
++    const dailyLimit = overridesByDate.get(date) ?? Number(hours?.max_daily_bookings || 0)
++    const dailyCount = countsByDate.get(date) || 0
++    const isPast = date < today
++    const hasAvailableSlot = Boolean(hours?.is_open && !blockedPeriod && !isPast && dailyCount < dailyLimit)
+     days.push({
+       date,
+-      isAvailable: Boolean(hours?.is_open && !blocked.blocked && hasAvailableSlot),
+-      isFullyBooked: Boolean(hours?.is_open && !blocked.blocked && !hasAvailableSlot),
+-      isBlocked: blocked.blocked || !hours?.is_open,
+-      reason: blocked.blocked ? blocked.period?.reason || blocked.period?.title || 'Blocked' : !hours?.is_open ? 'Closed' : !hasAvailableSlot ? 'Fully booked' : null,
++      isAvailable: hasAvailableSlot,
++      isFullyBooked: Boolean(hours?.is_open && !blockedPeriod && !isPast && !hasAvailableSlot),
++      isBlocked: Boolean(blockedPeriod || !hours?.is_open || isPast),
++      reason: blockedPeriod ? blockedPeriod.reason || blockedPeriod.title || 'Blocked' : !hours?.is_open ? 'Closed' : isPast ? 'Past' : !hasAvailableSlot ? 'Fully booked' : null,
+     })
+   }
+ 
+diff --git a/backend/src/services/imageStorageService.js b/backend/src/services/imageStorageService.js
+index 956f512..10c4ecb 100644
+--- a/backend/src/services/imageStorageService.js
++++ b/backend/src/services/imageStorageService.js
+@@ -14,13 +14,15 @@ function slugify(value) {
+ export function validateImageFile(file) {
+   if (!file) return null
+   if (!allowedTypes.has(file.mimetype)) {
+-    const error = new Error('Please choose a valid JPG, PNG, or WebP image.')
++    const error = new Error('Unsupported image format. Please choose a JPG, PNG, or WebP image.')
+     error.status = 400
++    error.appCode = 'INVALID_FILE_TYPE'
+     throw error
+   }
+   if (!file.buffer?.length) {
+-    const error = new Error('The selected image could not be read. Please choose another image.')
++    const error = new Error('No image file was received.')
+     error.status = 400
++    error.appCode = 'FILE_REQUIRED'
+     throw error
+   }
+   return file
+@@ -30,8 +32,9 @@ export async function uploadImageBuffer(file, { folder, slugPrefix }) {
+   validateImageFile(file)
+   if (!file) return null
+   if (!hasCloudinaryConfig()) {
+-    const error = new Error('Image storage is not configured. Add Cloudinary credentials on the backend.')
++    const error = new Error('Cloudinary upload failed because required server credentials are missing.')
+     error.status = 503
++    error.appCode = 'UPLOAD_CONFIGURATION_ERROR'
+     throw error
+   }
+ 
+@@ -48,15 +51,17 @@ export async function uploadImageBuffer(file, { folder, slugPrefix }) {
+       },
+       (error, result) => {
+         if (error) {
+-          const uploadError = new Error('The image could not be uploaded. Please try another image.')
++          const uploadError = new Error('Cloudinary rejected the uploaded file.')
+           uploadError.status = 502
++          uploadError.appCode = 'UPLOAD_PROVIDER_ERROR'
+           uploadError.cause = error
+           reject(uploadError)
+           return
+         }
+         if (!result?.secure_url || !result?.public_id) {
+-          const uploadError = new Error('The image upload did not return a saved image URL.')
++          const uploadError = new Error('Cloudinary uploaded the image but did not return a saved image URL.')
+           uploadError.status = 502
++          uploadError.appCode = 'UPLOAD_PROVIDER_ERROR'
+           reject(uploadError)
+           return
+         }
+diff --git a/frontend/.env.example b/frontend/.env.example
+index 3230fa0..b59357d 100644
+--- a/frontend/.env.example
++++ b/frontend/.env.example
+@@ -1,2 +1,3 @@
+ VITE_API_URL=http://localhost:5000/api
+ VITE_SITE_URL=http://localhost:5173
++VITE_PAYSTACK_PUBLIC_KEY=
+diff --git a/frontend/public/images/allay/about/about-brand-story.jpg.txt b/frontend/public/images/allay/about/about-brand-story.jpg.txt
+deleted file mode 100644
+index 558915c..0000000
+--- a/frontend/public/images/allay/about/about-brand-story.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for about-brand-story.jpg.
+-Replace this TXT file with the real image named exactly: about-brand-story.jpg
+-The frontend code references: /images/allay/about/about-brand-story.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/about/about-care.jpg.txt b/frontend/public/images/allay/about/about-care.jpg.txt
+deleted file mode 100644
+index 37571b7..0000000
+--- a/frontend/public/images/allay/about/about-care.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for about-care.jpg.
+-Replace this TXT file with the real image named exactly: about-care.jpg
+-The frontend code references: /images/allay/about/about-care.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/about/about-interior.jpg.txt b/frontend/public/images/allay/about/about-interior.jpg.txt
+deleted file mode 100644
+index 619a627..0000000
+--- a/frontend/public/images/allay/about/about-interior.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for about-interior.jpg.
+-Replace this TXT file with the real image named exactly: about-interior.jpg
+-The frontend code references: /images/allay/about/about-interior.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/auth/admin-login-bg.jpg.txt b/frontend/public/images/allay/auth/admin-login-bg.jpg.txt
+deleted file mode 100644
+index ae2e42b..0000000
+--- a/frontend/public/images/allay/auth/admin-login-bg.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for admin-login-bg.jpg.
+-Replace this TXT file with the real image named exactly: admin-login-bg.jpg
+-The frontend code references: /images/allay/auth/admin-login-bg.jpg
+-Use JPG format.
+-Recommended size: 1200x1600.
+diff --git a/frontend/public/images/allay/auth/auth-side.jpg.txt b/frontend/public/images/allay/auth/auth-side.jpg.txt
+deleted file mode 100644
+index d46bbf1..0000000
+--- a/frontend/public/images/allay/auth/auth-side.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for auth-side.jpg.
+-Replace this TXT file with the real image named exactly: auth-side.jpg
+-The frontend code references: /images/allay/auth/auth-side.jpg
+-Use JPG format.
+-Recommended size: 1200x1600.
+diff --git a/frontend/public/images/allay/auth/auth-signin.jpg.txt b/frontend/public/images/allay/auth/auth-signin.jpg.txt
+deleted file mode 100644
+index d8d4fa8..0000000
+--- a/frontend/public/images/allay/auth/auth-signin.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for auth-signin.jpg.
+-Replace this TXT file with the real image named exactly: auth-signin.jpg
+-The frontend code references: /images/allay/auth/auth-signin.jpg
+-Use JPG format.
+-Recommended size: 1200x1600.
+diff --git a/frontend/public/images/allay/auth/auth-signup.jpg.txt b/frontend/public/images/allay/auth/auth-signup.jpg.txt
+deleted file mode 100644
+index 0a5c9ae..0000000
+--- a/frontend/public/images/allay/auth/auth-signup.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for auth-signup.jpg.
+-Replace this TXT file with the real image named exactly: auth-signup.jpg
+-The frontend code references: /images/allay/auth/auth-signup.jpg
+-Use JPG format.
+-Recommended size: 1200x1600.
+diff --git a/frontend/public/images/allay/booking/booking-empty.jpg.txt b/frontend/public/images/allay/booking/booking-empty.jpg.txt
+deleted file mode 100644
+index d4381e7..0000000
+--- a/frontend/public/images/allay/booking/booking-empty.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for booking-empty.jpg.
+-Replace this TXT file with the real image named exactly: booking-empty.jpg
+-The frontend code references: /images/allay/booking/booking-empty.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/booking/booking-hero.jpg.txt b/frontend/public/images/allay/booking/booking-hero.jpg.txt
+deleted file mode 100644
+index fefbcac..0000000
+--- a/frontend/public/images/allay/booking/booking-hero.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for booking-hero.jpg.
+-Replace this TXT file with the real image named exactly: booking-hero.jpg
+-The frontend code references: /images/allay/booking/booking-hero.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/booking/booking-side.jpg.txt b/frontend/public/images/allay/booking/booking-side.jpg.txt
+deleted file mode 100644
+index 217e31d..0000000
+--- a/frontend/public/images/allay/booking/booking-side.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for booking-side.jpg.
+-Replace this TXT file with the real image named exactly: booking-side.jpg
+-The frontend code references: /images/allay/booking/booking-side.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/booking/booking-success.jpg.txt b/frontend/public/images/allay/booking/booking-success.jpg.txt
+deleted file mode 100644
+index 7994449..0000000
+--- a/frontend/public/images/allay/booking/booking-success.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for booking-success.jpg.
+-Replace this TXT file with the real image named exactly: booking-success.jpg
+-The frontend code references: /images/allay/booking/booking-success.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/brand/allay-logo-dark.png.txt b/frontend/public/images/allay/brand/allay-logo-dark.png.txt
+deleted file mode 100644
+index 68f9408..0000000
+--- a/frontend/public/images/allay/brand/allay-logo-dark.png.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for allay-logo-dark.png.
+-Replace this TXT file with the real image named exactly: allay-logo-dark.png
+-The frontend code references: /images/allay/brand/allay-logo-dark.png
+-Use PNG format.
+-Recommended size: Logo PNG with transparent background..
+diff --git a/frontend/public/images/allay/brand/allay-logo-light.png.txt b/frontend/public/images/allay/brand/allay-logo-light.png.txt
+deleted file mode 100644
+index f47df08..0000000
+--- a/frontend/public/images/allay/brand/allay-logo-light.png.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for allay-logo-light.png.
+-Replace this TXT file with the real image named exactly: allay-logo-light.png
+-The frontend code references: /images/allay/brand/allay-logo-light.png
+-Use PNG format.
+-Recommended size: Logo PNG with transparent background..
+diff --git a/frontend/public/images/allay/brand/allay-mark.png.txt b/frontend/public/images/allay/brand/allay-mark.png.txt
+deleted file mode 100644
+index 1dff4d1..0000000
+--- a/frontend/public/images/allay/brand/allay-mark.png.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for allay-mark.png.
+-Replace this TXT file with the real image named exactly: allay-mark.png
+-The frontend code references: /images/allay/brand/allay-mark.png
+-Use PNG format.
+-Recommended size: Logo mark PNG with transparent background..
+diff --git a/frontend/public/images/allay/brand/favicon.png.txt b/frontend/public/images/allay/brand/favicon.png.txt
+deleted file mode 100644
+index dfce450..0000000
+--- a/frontend/public/images/allay/brand/favicon.png.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for favicon.png.
+-Replace this TXT file with the real image named exactly: favicon.png
+-The frontend code references: /images/allay/brand/favicon.png
+-Use PNG format.
+-Recommended size: PNG favicon, 512x512 recommended..
+diff --git a/frontend/public/images/allay/categories/category-facials.jpg.txt b/frontend/public/images/allay/categories/category-facials.jpg.txt
+deleted file mode 100644
+index 1315b62..0000000
+--- a/frontend/public/images/allay/categories/category-facials.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-facials.jpg.
+-Replace this TXT file with the real image named exactly: category-facials.jpg
+-The frontend code references: /images/allay/categories/category-facials.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-hair-braiding.jpg.txt b/frontend/public/images/allay/categories/category-hair-braiding.jpg.txt
+deleted file mode 100644
+index 18747a6..0000000
+--- a/frontend/public/images/allay/categories/category-hair-braiding.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-hair-braiding.jpg.
+-Replace this TXT file with the real image named exactly: category-hair-braiding.jpg
+-The frontend code references: /images/allay/categories/category-hair-braiding.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-headspa.jpg.txt b/frontend/public/images/allay/categories/category-headspa.jpg.txt
+deleted file mode 100644
+index 3819e4d..0000000
+--- a/frontend/public/images/allay/categories/category-headspa.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-headspa.jpg.
+-Replace this TXT file with the real image named exactly: category-headspa.jpg
+-The frontend code references: /images/allay/categories/category-headspa.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-lash-studio.jpg.txt b/frontend/public/images/allay/categories/category-lash-studio.jpg.txt
+deleted file mode 100644
+index ac3e543..0000000
+--- a/frontend/public/images/allay/categories/category-lash-studio.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-lash-studio.jpg.
+-Replace this TXT file with the real image named exactly: category-lash-studio.jpg
+-The frontend code references: /images/allay/categories/category-lash-studio.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-massage.jpg.txt b/frontend/public/images/allay/categories/category-massage.jpg.txt
+deleted file mode 100644
+index ef7d190..0000000
+--- a/frontend/public/images/allay/categories/category-massage.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-massage.jpg.
+-Replace this TXT file with the real image named exactly: category-massage.jpg
+-The frontend code references: /images/allay/categories/category-massage.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-nail-studio.jpg.txt b/frontend/public/images/allay/categories/category-nail-studio.jpg.txt
+deleted file mode 100644
+index e1bd5d6..0000000
+--- a/frontend/public/images/allay/categories/category-nail-studio.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-nail-studio.jpg.
+-Replace this TXT file with the real image named exactly: category-nail-studio.jpg
+-The frontend code references: /images/allay/categories/category-nail-studio.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-pilates.jpg.txt b/frontend/public/images/allay/categories/category-pilates.jpg.txt
+deleted file mode 100644
+index d79dc2a..0000000
+--- a/frontend/public/images/allay/categories/category-pilates.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-pilates.jpg.
+-Replace this TXT file with the real image named exactly: category-pilates.jpg
+-The frontend code references: /images/allay/categories/category-pilates.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-salon.jpg.txt b/frontend/public/images/allay/categories/category-salon.jpg.txt
+deleted file mode 100644
+index 180cfdf..0000000
+--- a/frontend/public/images/allay/categories/category-salon.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-salon.jpg.
+-Replace this TXT file with the real image named exactly: category-salon.jpg
+-The frontend code references: /images/allay/categories/category-salon.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-sauna.jpg.txt b/frontend/public/images/allay/categories/category-sauna.jpg.txt
+deleted file mode 100644
+index 2f2eb91..0000000
+--- a/frontend/public/images/allay/categories/category-sauna.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-sauna.jpg.
+-Replace this TXT file with the real image named exactly: category-sauna.jpg
+-The frontend code references: /images/allay/categories/category-sauna.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-spa.jpg.txt b/frontend/public/images/allay/categories/category-spa.jpg.txt
+deleted file mode 100644
+index 999d90b..0000000
+--- a/frontend/public/images/allay/categories/category-spa.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-spa.jpg.
+-Replace this TXT file with the real image named exactly: category-spa.jpg
+-The frontend code references: /images/allay/categories/category-spa.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/categories/category-wigs.jpg.txt b/frontend/public/images/allay/categories/category-wigs.jpg.txt
+deleted file mode 100644
+index 9bcac96..0000000
+--- a/frontend/public/images/allay/categories/category-wigs.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for category-wigs.jpg.
+-Replace this TXT file with the real image named exactly: category-wigs.jpg
+-The frontend code references: /images/allay/categories/category-wigs.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/contact/contact-hero.jpg.txt b/frontend/public/images/allay/contact/contact-hero.jpg.txt
+deleted file mode 100644
+index 441ebee..0000000
+--- a/frontend/public/images/allay/contact/contact-hero.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for contact-hero.jpg.
+-Replace this TXT file with the real image named exactly: contact-hero.jpg
+-The frontend code references: /images/allay/contact/contact-hero.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/contact/contact-interior.jpg.txt b/frontend/public/images/allay/contact/contact-interior.jpg.txt
+deleted file mode 100644
+index cd52ff4..0000000
+--- a/frontend/public/images/allay/contact/contact-interior.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for contact-interior.jpg.
+-Replace this TXT file with the real image named exactly: contact-interior.jpg
+-The frontend code references: /images/allay/contact/contact-interior.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/contact/contact-location.jpg.txt b/frontend/public/images/allay/contact/contact-location.jpg.txt
+deleted file mode 100644
+index 0745fa3..0000000
+--- a/frontend/public/images/allay/contact/contact-location.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for contact-location.jpg.
+-Replace this TXT file with the real image named exactly: contact-location.jpg
+-The frontend code references: /images/allay/contact/contact-location.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/home/home-experience-section.jpg.txt b/frontend/public/images/allay/home/home-experience-section.jpg.txt
+deleted file mode 100644
+index ae334f1..0000000
+--- a/frontend/public/images/allay/home/home-experience-section.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for home-experience-section.jpg.
+-Replace this TXT file with the real image named exactly: home-experience-section.jpg
+-The frontend code references: /images/allay/home/home-experience-section.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/home/home-hero-detail.jpg.txt b/frontend/public/images/allay/home/home-hero-detail.jpg.txt
+deleted file mode 100644
+index 9b78c89..0000000
+--- a/frontend/public/images/allay/home/home-hero-detail.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for home-hero-detail.jpg.
+-Replace this TXT file with the real image named exactly: home-hero-detail.jpg
+-The frontend code references: /images/allay/home/home-hero-detail.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/home/home-hero-secondary.jpg.txt b/frontend/public/images/allay/home/home-hero-secondary.jpg.txt
+deleted file mode 100644
+index d73660e..0000000
+--- a/frontend/public/images/allay/home/home-hero-secondary.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for home-hero-secondary.jpg.
+-Replace this TXT file with the real image named exactly: home-hero-secondary.jpg
+-The frontend code references: /images/allay/home/home-hero-secondary.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-avatar.jpg.txt b/frontend/public/images/allay/placeholders/placeholder-avatar.jpg.txt
+deleted file mode 100644
+index 7661fce..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-avatar.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-avatar.jpg.
+-Replace this TXT file with the real image named exactly: placeholder-avatar.jpg
+-The frontend code references: /images/allay/placeholders/placeholder-avatar.jpg
+-Use JPG format.
+-Recommended size: 600x600.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-category.jpg.txt b/frontend/public/images/allay/placeholders/placeholder-category.jpg.txt
+deleted file mode 100644
+index e6a3550..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-category.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-category.jpg.
+-Replace this TXT file with the real image named exactly: placeholder-category.jpg
+-The frontend code references: /images/allay/placeholders/placeholder-category.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-empty.jpg.txt b/frontend/public/images/allay/placeholders/placeholder-empty.jpg.txt
+deleted file mode 100644
+index b0e4e7b..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-empty.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-empty.jpg.
+-Replace this TXT file with the real image named exactly: placeholder-empty.jpg
+-The frontend code references: /images/allay/placeholders/placeholder-empty.jpg
+-Use JPG format.
+-Recommended size: 1200x900.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-hero.jpg.txt b/frontend/public/images/allay/placeholders/placeholder-hero.jpg.txt
+deleted file mode 100644
+index d91d696..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-hero.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-hero.jpg.
+-Replace this TXT file with the real image named exactly: placeholder-hero.jpg
+-The frontend code references: /images/allay/placeholders/placeholder-hero.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-logo.png.txt b/frontend/public/images/allay/placeholders/placeholder-logo.png.txt
+deleted file mode 100644
+index 33f92c8..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-logo.png.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-logo.png.
+-Replace this TXT file with the real image named exactly: placeholder-logo.png
+-The frontend code references: /images/allay/placeholders/placeholder-logo.png
+-Use PNG format.
+-Recommended size: Transparent PNG logo fallback.
+diff --git a/frontend/public/images/allay/placeholders/placeholder-service.jpg.txt b/frontend/public/images/allay/placeholders/placeholder-service.jpg.txt
+deleted file mode 100644
+index d81fe6d..0000000
+--- a/frontend/public/images/allay/placeholders/placeholder-service.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for placeholder-service.jpg.
+-Replace this TXT file with the real image named exactly: placeholder-service.jpg
+-The frontend code references: /images/allay/placeholders/placeholder-service.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-aromatherapy-massage.jpg.txt b/frontend/public/images/allay/services/service-aromatherapy-massage.jpg.txt
+deleted file mode 100644
+index 175c94e..0000000
+--- a/frontend/public/images/allay/services/service-aromatherapy-massage.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-aromatherapy-massage.jpg.
+-Replace this TXT file with the real image named exactly: service-aromatherapy-massage.jpg
+-The frontend code references: /images/allay/services/service-aromatherapy-massage.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-brow-shaping.jpg.txt b/frontend/public/images/allay/services/service-brow-shaping.jpg.txt
+deleted file mode 100644
+index f519ba3..0000000
+--- a/frontend/public/images/allay/services/service-brow-shaping.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-brow-shaping.jpg.
+-Replace this TXT file with the real image named exactly: service-brow-shaping.jpg
+-The frontend code references: /images/allay/services/service-brow-shaping.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-classic-facial.jpg.txt b/frontend/public/images/allay/services/service-classic-facial.jpg.txt
+deleted file mode 100644
+index fa62ecd..0000000
+--- a/frontend/public/images/allay/services/service-classic-facial.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-classic-facial.jpg.
+-Replace this TXT file with the real image named exactly: service-classic-facial.jpg
+-The frontend code references: /images/allay/services/service-classic-facial.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-classic-manicure.jpg.txt b/frontend/public/images/allay/services/service-classic-manicure.jpg.txt
+deleted file mode 100644
+index eb72599..0000000
+--- a/frontend/public/images/allay/services/service-classic-manicure.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-classic-manicure.jpg.
+-Replace this TXT file with the real image named exactly: service-classic-manicure.jpg
+-The frontend code references: /images/allay/services/service-classic-manicure.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-classic-pedicure.jpg.txt b/frontend/public/images/allay/services/service-classic-pedicure.jpg.txt
+deleted file mode 100644
+index eefdbcb..0000000
+--- a/frontend/public/images/allay/services/service-classic-pedicure.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-classic-pedicure.jpg.
+-Replace this TXT file with the real image named exactly: service-classic-pedicure.jpg
+-The frontend code references: /images/allay/services/service-classic-pedicure.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-deep-tissue-massage.jpg.txt b/frontend/public/images/allay/services/service-deep-tissue-massage.jpg.txt
+deleted file mode 100644
+index 53b95cc..0000000
+--- a/frontend/public/images/allay/services/service-deep-tissue-massage.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-deep-tissue-massage.jpg.
+-Replace this TXT file with the real image named exactly: service-deep-tissue-massage.jpg
+-The frontend code references: /images/allay/services/service-deep-tissue-massage.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-gel-polish.jpg.txt b/frontend/public/images/allay/services/service-gel-polish.jpg.txt
+deleted file mode 100644
+index 9aad7ae..0000000
+--- a/frontend/public/images/allay/services/service-gel-polish.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-gel-polish.jpg.
+-Replace this TXT file with the real image named exactly: service-gel-polish.jpg
+-The frontend code references: /images/allay/services/service-gel-polish.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-glow-facial.jpg.txt b/frontend/public/images/allay/services/service-glow-facial.jpg.txt
+deleted file mode 100644
+index 5cc2814..0000000
+--- a/frontend/public/images/allay/services/service-glow-facial.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-glow-facial.jpg.
+-Replace this TXT file with the real image named exactly: service-glow-facial.jpg
+-The frontend code references: /images/allay/services/service-glow-facial.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-group-pilates.jpg.txt b/frontend/public/images/allay/services/service-group-pilates.jpg.txt
+deleted file mode 100644
+index 64980bf..0000000
+--- a/frontend/public/images/allay/services/service-group-pilates.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-group-pilates.jpg.
+-Replace this TXT file with the real image named exactly: service-group-pilates.jpg
+-The frontend code references: /images/allay/services/service-group-pilates.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-hair-braiding.jpg.txt b/frontend/public/images/allay/services/service-hair-braiding.jpg.txt
+deleted file mode 100644
+index 4d6973c..0000000
+--- a/frontend/public/images/allay/services/service-hair-braiding.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-hair-braiding.jpg.
+-Replace this TXT file with the real image named exactly: service-hair-braiding.jpg
+-The frontend code references: /images/allay/services/service-hair-braiding.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-hair-styling.jpg.txt b/frontend/public/images/allay/services/service-hair-styling.jpg.txt
+deleted file mode 100644
+index 51bc598..0000000
+--- a/frontend/public/images/allay/services/service-hair-styling.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-hair-styling.jpg.
+-Replace this TXT file with the real image named exactly: service-hair-styling.jpg
+-The frontend code references: /images/allay/services/service-hair-styling.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-headspa-treatment.jpg.txt b/frontend/public/images/allay/services/service-headspa-treatment.jpg.txt
+deleted file mode 100644
+index 0f6cf7a..0000000
+--- a/frontend/public/images/allay/services/service-headspa-treatment.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-headspa-treatment.jpg.
+-Replace this TXT file with the real image named exactly: service-headspa-treatment.jpg
+-The frontend code references: /images/allay/services/service-headspa-treatment.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-hydrating-facial.jpg.txt b/frontend/public/images/allay/services/service-hydrating-facial.jpg.txt
+deleted file mode 100644
+index 5d843b4..0000000
+--- a/frontend/public/images/allay/services/service-hydrating-facial.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-hydrating-facial.jpg.
+-Replace this TXT file with the real image named exactly: service-hydrating-facial.jpg
+-The frontend code references: /images/allay/services/service-hydrating-facial.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-lash-extensions.jpg.txt b/frontend/public/images/allay/services/service-lash-extensions.jpg.txt
+deleted file mode 100644
+index 211d7e4..0000000
+--- a/frontend/public/images/allay/services/service-lash-extensions.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-lash-extensions.jpg.
+-Replace this TXT file with the real image named exactly: service-lash-extensions.jpg
+-The frontend code references: /images/allay/services/service-lash-extensions.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-lash-lift.jpg.txt b/frontend/public/images/allay/services/service-lash-lift.jpg.txt
+deleted file mode 100644
+index 4a3793f..0000000
+--- a/frontend/public/images/allay/services/service-lash-lift.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-lash-lift.jpg.
+-Replace this TXT file with the real image named exactly: service-lash-lift.jpg
+-The frontend code references: /images/allay/services/service-lash-lift.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-nail-art.jpg.txt b/frontend/public/images/allay/services/service-nail-art.jpg.txt
+deleted file mode 100644
+index c328fc0..0000000
+--- a/frontend/public/images/allay/services/service-nail-art.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-nail-art.jpg.
+-Replace this TXT file with the real image named exactly: service-nail-art.jpg
+-The frontend code references: /images/allay/services/service-nail-art.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-private-pilates.jpg.txt b/frontend/public/images/allay/services/service-private-pilates.jpg.txt
+deleted file mode 100644
+index fe615e9..0000000
+--- a/frontend/public/images/allay/services/service-private-pilates.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-private-pilates.jpg.
+-Replace this TXT file with the real image named exactly: service-private-pilates.jpg
+-The frontend code references: /images/allay/services/service-private-pilates.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-sauna-session.jpg.txt b/frontend/public/images/allay/services/service-sauna-session.jpg.txt
+deleted file mode 100644
+index aaf4462..0000000
+--- a/frontend/public/images/allay/services/service-sauna-session.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-sauna-session.jpg.
+-Replace this TXT file with the real image named exactly: service-sauna-session.jpg
+-The frontend code references: /images/allay/services/service-sauna-session.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-swedish-massage.jpg.txt b/frontend/public/images/allay/services/service-swedish-massage.jpg.txt
+deleted file mode 100644
+index 746db12..0000000
+--- a/frontend/public/images/allay/services/service-swedish-massage.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-swedish-massage.jpg.
+-Replace this TXT file with the real image named exactly: service-swedish-massage.jpg
+-The frontend code references: /images/allay/services/service-swedish-massage.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-wig-installation.jpg.txt b/frontend/public/images/allay/services/service-wig-installation.jpg.txt
+deleted file mode 100644
+index 8ee5c58..0000000
+--- a/frontend/public/images/allay/services/service-wig-installation.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-wig-installation.jpg.
+-Replace this TXT file with the real image named exactly: service-wig-installation.jpg
+-The frontend code references: /images/allay/services/service-wig-installation.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/services/service-wig-styling.jpg.txt b/frontend/public/images/allay/services/service-wig-styling.jpg.txt
+deleted file mode 100644
+index b34c757..0000000
+--- a/frontend/public/images/allay/services/service-wig-styling.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for service-wig-styling.jpg.
+-Replace this TXT file with the real image named exactly: service-wig-styling.jpg
+-The frontend code references: /images/allay/services/service-wig-styling.jpg
+-Use JPG format.
+-Recommended size: 1200x800.
+diff --git a/frontend/public/images/allay/waitlist/waitlist-hero.jpg.txt b/frontend/public/images/allay/waitlist/waitlist-hero.jpg.txt
+deleted file mode 100644
+index 07cf333..0000000
+--- a/frontend/public/images/allay/waitlist/waitlist-hero.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for waitlist-hero.jpg.
+-Replace this TXT file with the real image named exactly: waitlist-hero.jpg
+-The frontend code references: /images/allay/waitlist/waitlist-hero.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/waitlist/waitlist-side.jpg.txt b/frontend/public/images/allay/waitlist/waitlist-side.jpg.txt
+deleted file mode 100644
+index 5b0f761..0000000
+--- a/frontend/public/images/allay/waitlist/waitlist-side.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for waitlist-side.jpg.
+-Replace this TXT file with the real image named exactly: waitlist-side.jpg
+-The frontend code references: /images/allay/waitlist/waitlist-side.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/public/images/allay/waitlist/waitlist-success.jpg.txt b/frontend/public/images/allay/waitlist/waitlist-success.jpg.txt
+deleted file mode 100644
+index e7617a6..0000000
+--- a/frontend/public/images/allay/waitlist/waitlist-success.jpg.txt
++++ /dev/null
+@@ -1,5 +0,0 @@
+-﻿This is a placeholder for waitlist-success.jpg.
+-Replace this TXT file with the real image named exactly: waitlist-success.jpg
+-The frontend code references: /images/allay/waitlist/waitlist-success.jpg
+-Use JPG format.
+-Recommended size: 1800x1200 or 1600x1000.
+diff --git a/frontend/src/components/booking/ServiceMultiSelect.jsx b/frontend/src/components/booking/ServiceMultiSelect.jsx
+index 2f65379..4dd0776 100644
+--- a/frontend/src/components/booking/ServiceMultiSelect.jsx
++++ b/frontend/src/components/booking/ServiceMultiSelect.jsx
+@@ -1,4 +1,5 @@
+ import { Check, Clock3 } from 'lucide-react'
++import ImagePlaceholder from '../common/ImagePlaceholder'
+ import { getServiceImage } from '../../data/allayImages'
+ import { formatPriceLabel } from '../../utils/formatCurrency'
+ 
+@@ -26,7 +27,7 @@ export default function ServiceMultiSelect({ services, selectedServices, onChang
+         const selected = selectedServices.some((item) => serviceKey(item) === serviceKey(service))
+         const image = service.imageUrl || service.image || getServiceImage(service.slug)
+         return <button type="button" key={service.id} className={`booking-service ${selected ? 'is-selected' : ''}`} aria-pressed={selected} onClick={() => toggle(service)}>
+-          <span className="booking-service__image"><img src={image} alt={`${service.name} treatment`} width="420" height="315" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} /></span>
++          <span className="booking-service__image"><ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment`} variant="card" width="420" height="315" /></span>
+           <span className="booking-service__check"><Check size={15} /></span>
+           <span className="booking-service__body"><small>{service.category}</small><strong>{service.name}</strong><span><Clock3 size={13} />{service.durationMinutes} mins / {formatPriceLabel(service.price)}</span></span>
+         </button>
+diff --git a/frontend/src/components/common/Brand.jsx b/frontend/src/components/common/Brand.jsx
+index 4af3cb9..03fdeba 100644
+--- a/frontend/src/components/common/Brand.jsx
++++ b/frontend/src/components/common/Brand.jsx
+@@ -1,6 +1,5 @@
+-import { Link } from 'react-router-dom'
++import BrandLogo from './BrandLogo'
+ 
+ export default function Brand({ light = false }) {
+-  return <Link className={`brand ${light ? 'brand--light' : ''}`} to="/" aria-label="Allay House home"><span>ALLAY</span><small>HOUSE</small></Link>
++  return <BrandLogo variant={light ? 'white' : 'brown'} className="brand" />
+ }
+-
+diff --git a/frontend/src/components/common/Logo.jsx b/frontend/src/components/common/Logo.jsx
+index 872da6e..ae1d880 100644
+--- a/frontend/src/components/common/Logo.jsx
++++ b/frontend/src/components/common/Logo.jsx
+@@ -1,13 +1,5 @@
+-import { useState } from 'react'
+-import { Link } from 'react-router-dom'
+-import { imagePaths } from '../../utils/imagePaths'
++import BrandLogo from './BrandLogo'
+ 
+-export default function Logo({ dark = false, to = '/', className = '', src }) {
+-  const logoSrc = src || (dark ? imagePaths.brand.logoDark : imagePaths.brand.logoLight)
+-  const [imageAvailable, setImageAvailable] = useState(true)
+-  const [imageLoaded, setImageLoaded] = useState(false)
+-  return <Link className={`logo ${dark ? 'logo--dark' : ''} ${imageLoaded ? 'has-image' : ''} ${className}`.trim()} to={to} aria-label="Allay House home">
+-    {imageAvailable && <img src={logoSrc} alt="" aria-hidden="true" onLoad={() => setImageLoaded(true)} onError={() => { setImageAvailable(false); setImageLoaded(false) }} />}
+-    <span className="logo__fallback"><strong>ALLAY</strong><small>HOUSE</small></span>
+-  </Link>
++export default function Logo({ dark = false, to = '/', className = '' }) {
++  return <BrandLogo variant={dark ? 'white' : 'brown'} to={to} className={`logo ${className}`.trim()} />
+ }
+diff --git a/frontend/src/components/common/ServiceCard.jsx b/frontend/src/components/common/ServiceCard.jsx
+index 2ed0237..cde7b48 100644
+--- a/frontend/src/components/common/ServiceCard.jsx
++++ b/frontend/src/components/common/ServiceCard.jsx
+@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
+ import { getServiceImage } from '../../data/allayImages'
+ import { formatPriceLabel } from '../../utils/formatCurrency'
+ import Button from './Button'
++import ImagePlaceholder from './ImagePlaceholder'
+ 
+ export default function ServiceCard({ service }) {
+   const image = service.imageUrl || service.image || getServiceImage(service.slug)
+   return <article className="service-card">
+     <Link className="service-card__image" to={`/services/${service.slug}`}>
+-      <img src={image} alt={`${service.name} treatment`} width="640" height="480" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} />
++      <ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment`} variant="card" width="640" height="480" />
+     </Link>
+     <div className="service-card__body">
+       <span className="service-card__category">{service.category}</span>
+diff --git a/frontend/src/components/layout/AdminSidebar.jsx b/frontend/src/components/layout/AdminSidebar.jsx
+index ea4be60..794d57f 100644
+--- a/frontend/src/components/layout/AdminSidebar.jsx
++++ b/frontend/src/components/layout/AdminSidebar.jsx
+@@ -6,6 +6,7 @@ import Brand from '../common/Brand'
+ const iconsByPath = {
+   '/allay-admin': LayoutDashboard,
+   '/allay-admin/bookings': CalendarCheck,
++  '/allay-admin/users': Users,
+   '/allay-admin/customers': UserRound,
+   '/allay-admin/availability': Clock,
+   '/allay-admin/services': Sparkles,
+diff --git a/frontend/src/data/navigationLinks.js b/frontend/src/data/navigationLinks.js
+index 02210ad..54ceb90 100644
+--- a/frontend/src/data/navigationLinks.js
++++ b/frontend/src/data/navigationLinks.js
+@@ -8,6 +8,7 @@ export const publicNavigationLinks = [
+ export const adminNavigationLinks = [
+   { label: 'Overview', to: '/allay-admin', end: true },
+   { label: 'Bookings', to: '/allay-admin/bookings' },
++  { label: 'Users', to: '/allay-admin/users' },
+   { label: 'Customers', to: '/allay-admin/customers' },
+   { label: 'Availability', to: '/allay-admin/availability' },
+   { label: 'Services', to: '/allay-admin/services' },
+diff --git a/frontend/src/pages/admin/BookingDetails.jsx b/frontend/src/pages/admin/BookingDetails.jsx
+index 14c1849..1ec2e7d 100644
+--- a/frontend/src/pages/admin/BookingDetails.jsx
++++ b/frontend/src/pages/admin/BookingDetails.jsx
+@@ -1,9 +1,66 @@
+-import { useParams } from 'react-router-dom'
++import { useEffect, useState } from 'react'
++import { Link, useParams } from 'react-router-dom'
++import toast from 'react-hot-toast'
+ import Badge from '../../components/common/Badge'
+-import Button from '../../components/common/Button'
++import Loader from '../../components/common/Loader'
++import { getAdminBooking } from '../../services/adminApi'
++import { formatCurrency } from '../../utils/formatCurrency'
++import { formatDate } from '../../utils/formatDate'
++
++function formatTime(value) {
++  return String(value || '').slice(0, 5) || '-'
++}
+ 
+ export default function BookingDetails() {
+   const { id } = useParams()
+-  return <><div className="admin-page-heading"><div><span className="eyebrow">Booking {id}</span><h1>Booking details</h1><p>Customer, service, schedule, and payment information.</p></div><Badge status="pending">Pending</Badge></div><div className="admin-detail-grid"><section className="admin-panel"><h2>Appointment</h2><dl><div><dt>Service</dt><dd>Allay Signature Massage</dd></div><div><dt>Date & time</dt><dd>Awaiting live booking data</dd></div><div><dt>Payment</dt><dd><Badge status="unpaid">Unpaid</Badge></dd></div></dl></section><section className="admin-panel"><h2>Customer</h2><dl><div><dt>Name</dt><dd>Sample customer</dd></div><div><dt>Contact</dt><dd>customer@example.com</dd></div></dl><Button variant="secondary">Update booking</Button></section></div></>
+-}
++  const [booking, setBooking] = useState(null)
++  const [services, setServices] = useState([])
++  const [loading, setLoading] = useState(true)
+ 
++  useEffect(() => {
++    setLoading(true)
++    getAdminBooking(id)
++      .then((data) => {
++        setBooking(data.booking)
++        setServices(data.services || [])
++      })
++      .catch(() => toast.error('Could not load booking details.'))
++      .finally(() => setLoading(false))
++  }, [id])
++
++  if (loading) return <><div className="admin-page-heading"><div><span className="eyebrow">Booking</span><h1>Booking details</h1><p>Customer, service, schedule, and payment information.</p></div></div><Loader label="Loading booking" /></>
++  if (!booking) return <><div className="admin-page-heading"><div><span className="eyebrow">Booking</span><h1>Booking not found</h1><p>This booking could not be loaded.</p></div></div></>
++
++  return <>
++    <div className="admin-page-heading">
++      <div><span className="eyebrow">Booking {booking.booking_reference}</span><h1>Booking details</h1><p>Customer, service, schedule, and payment information.</p></div>
++      <Badge status={booking.status}>{booking.status}</Badge>
++    </div>
++    <div className="admin-detail-grid">
++      <section className="admin-panel">
++        <h2>Appointment</h2>
++        <dl>
++          <div><dt>Services</dt><dd>{services.length ? services.map((service) => service.service_name).join(', ') : '-'}</dd></div>
++          <div><dt>Date</dt><dd>{formatDate(booking.appointment_date)}</dd></div>
++          <div><dt>Preferred time</dt><dd>{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</dd></div>
++          <div><dt>Duration</dt><dd>{booking.total_duration_minutes || 0} mins</dd></div>
++          <div><dt>Total amount</dt><dd>{formatCurrency(booking.total_amount || 0)}</dd></div>
++          <div><dt>Payment</dt><dd><Badge status={booking.payment_status}>{booking.payment_status}</Badge></dd></div>
++          <div><dt>Status</dt><dd><Badge status={booking.status}>{booking.status}</Badge></dd></div>
++        </dl>
++      </section>
++      <section className="admin-panel">
++        <h2>Customer</h2>
++        <dl>
++          <div><dt>Name</dt><dd>{booking.customer_name || '-'}</dd></div>
++          <div><dt>Email</dt><dd>{booking.customer_email || '-'}</dd></div>
++          <div><dt>Phone</dt><dd>{booking.customer_phone || '-'}</dd></div>
++          <div><dt>Notes</dt><dd>{booking.customer_note || '-'}</dd></div>
++          <div><dt>Created</dt><dd>{formatDate(booking.created_at)}</dd></div>
++          <div><dt>Last updated</dt><dd>{formatDate(booking.updated_at)}</dd></div>
++        </dl>
++        <Link className="text-link" to="/allay-admin/bookings">Back to bookings</Link>
++      </section>
++    </div>
++  </>
++}
+diff --git a/frontend/src/pages/admin/Bookings.jsx b/frontend/src/pages/admin/Bookings.jsx
+index 99e0b4d..11c109c 100644
+--- a/frontend/src/pages/admin/Bookings.jsx
++++ b/frontend/src/pages/admin/Bookings.jsx
+@@ -1,8 +1,82 @@
++import { useEffect, useMemo, useState } from 'react'
+ import { Link } from 'react-router-dom'
++import toast from 'react-hot-toast'
+ import Badge from '../../components/common/Badge'
++import EmptyState from '../../components/common/EmptyState'
++import Loader from '../../components/common/Loader'
+ import Input from '../../components/forms/Input'
++import { getBookings } from '../../services/adminApi'
++import { formatCurrency } from '../../utils/formatCurrency'
++import { formatDate } from '../../utils/formatDate'
+ 
+-export default function Bookings() {
+-  return <><div className="admin-page-heading"><div><span className="eyebrow">Appointments</span><h1>Bookings</h1><p>Search, filter, and manage customer appointments.</p></div></div><section className="admin-panel"><div className="admin-filters"><Input id="booking-search" placeholder="Search customer or reference" aria-label="Search bookings" /><select aria-label="Booking status"><option>All statuses</option><option>Pending</option><option>Confirmed</option></select></div><div className="table-wrap"><table><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Status</th><th>Payment</th><th /></tr></thead><tbody><tr><td>ALY-PREVIEW</td><td>Sample customer</td><td>Signature Massage</td><td><Badge status="pending">Pending</Badge></td><td><Badge status="unpaid">Unpaid</Badge></td><td><Link to="/allay-admin/bookings/preview">View</Link></td></tr></tbody></table></div></section></>
++function formatTime(value) {
++  return String(value || '').slice(0, 5) || '-'
+ }
+ 
++export default function Bookings() {
++  const [bookings, setBookings] = useState([])
++  const [loading, setLoading] = useState(true)
++  const [search, setSearch] = useState('')
++  const [status, setStatus] = useState('all')
++
++  useEffect(() => {
++    setLoading(true)
++    getBookings()
++      .then((data) => setBookings(data.bookings || []))
++      .catch(() => toast.error('Could not load bookings.'))
++      .finally(() => setLoading(false))
++  }, [])
++
++  const filteredBookings = useMemo(() => {
++    const searchText = search.trim().toLowerCase()
++    return bookings.filter((booking) => {
++      const matchesStatus = status === 'all' || booking.status === status
++      const matchesSearch = !searchText || [
++        booking.bookingReference,
++        booking.customerName,
++        booking.customerEmail,
++        booking.customerPhone,
++        booking.serviceNames,
++      ].some((value) => String(value || '').toLowerCase().includes(searchText))
++      return matchesStatus && matchesSearch
++    })
++  }, [bookings, search, status])
++
++  return <>
++    <div className="admin-page-heading"><div><span className="eyebrow">Appointments</span><h1>Bookings</h1><p>Search, filter, and manage customer appointments.</p></div></div>
++    <section className="admin-panel">
++      <div className="admin-filters">
++        <Input id="booking-search" placeholder="Search customer, phone, email, service, or reference" aria-label="Search bookings" value={search} onChange={(event) => setSearch(event.target.value)} />
++        <select aria-label="Booking status" value={status} onChange={(event) => setStatus(event.target.value)}>
++          <option value="all">All statuses</option>
++          <option value="pending">Pending</option>
++          <option value="confirmed">Confirmed</option>
++          <option value="completed">Completed</option>
++          <option value="cancelled">Cancelled</option>
++          <option value="no_show">No show</option>
++        </select>
++      </div>
++
++      {loading ? <Loader label="Loading bookings" /> : !filteredBookings.length ? <EmptyState title="No bookings found" message="Confirmed booking requests will appear here with customer and service details." /> : <div className="table-wrap">
++        <table>
++          <thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Date</th><th>Time</th><th>Duration</th><th>Total</th><th>Status</th><th>Payment</th><th>Created</th><th /></tr></thead>
++          <tbody>
++            {filteredBookings.map((booking) => <tr key={booking.id}>
++              <td>{booking.bookingReference}</td>
++              <td><span className="admin-service-name">{booking.customerName || '-'}<small>{booking.customerEmail || '-'} / {booking.customerPhone || '-'}</small></span></td>
++              <td>{booking.serviceNames || '-'}</td>
++              <td>{formatDate(booking.appointmentDate)}</td>
++              <td>{formatTime(booking.startTime)}</td>
++              <td>{booking.totalDurationMinutes || 0} mins</td>
++              <td>{formatCurrency(booking.totalAmount || 0)}</td>
++              <td><Badge status={booking.status}>{booking.status}</Badge></td>
++              <td><Badge status={booking.paymentStatus}>{booking.paymentStatus}</Badge></td>
++              <td>{formatDate(booking.createdAt)}</td>
++              <td><Link to={`/allay-admin/bookings/${booking.id}`}>View</Link></td>
++            </tr>)}
++          </tbody>
++        </table>
++      </div>}
++    </section>
++  </>
++}
+diff --git a/frontend/src/pages/admin/Customers.jsx b/frontend/src/pages/admin/Customers.jsx
+index a56920d..11bc3be 100644
+--- a/frontend/src/pages/admin/Customers.jsx
++++ b/frontend/src/pages/admin/Customers.jsx
+@@ -26,7 +26,7 @@ export default function Customers() {
+         setCustomers(data.customers || [])
+         setPagination(data.pagination || { page, limit: pageSize, total: 0 })
+       })
+-      .catch(() => toast.error('Could not load registered customers.'))
++      .catch(() => toast.error('Could not load customers.'))
+       .finally(() => setLoading(false))
+   }, [])
+ 
+@@ -49,7 +49,7 @@ export default function Customers() {
+ 
+   return <>
+     <div className="admin-page-heading">
+-      <div><span className="eyebrow">Registered users</span><h1>Customers</h1><p>View people who created Allay House customer accounts.</p></div>
++      <div><span className="eyebrow">Booked clients</span><h1>Customers</h1><p>People with booking history, including upcoming, completed, cancelled, paid, and pending appointments.</p></div>
+     </div>
+ 
+     <section className="admin-panel">
+@@ -58,7 +58,7 @@ export default function Customers() {
+         <Button type="submit">Search</Button>
+       </form>
+ 
+-      {loading ? <Loader label="Loading customers" /> : !customers.length ? <EmptyState title="No registered customers" message="Customer accounts will appear here after sign-up." /> : <div className="table-wrap">
++      {loading ? <Loader label="Loading customers" /> : !customers.length ? <EmptyState title="No customers yet" message="People appear here after they make a booking." /> : <div className="table-wrap">
+         <table>
+           <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Joined</th><th>Last login</th><th>Bookings</th><th>Status</th><th /></tr></thead>
+           <tbody>
+diff --git a/frontend/src/pages/admin/ServicesManager.jsx b/frontend/src/pages/admin/ServicesManager.jsx
+index 07842a1..98b96a1 100644
+--- a/frontend/src/pages/admin/ServicesManager.jsx
++++ b/frontend/src/pages/admin/ServicesManager.jsx
+@@ -149,18 +149,24 @@ export default function ServicesManager() {
+         simultaneousCapacity: String(Number(form.simultaneousCapacity)),
+         displayOrder: String(Number(form.displayOrder)),
+       }, imageFile)
++      let savedService = null
+       if (editingService) {
+-        await updateAdminService(editingService.id, payload)
++        const response = await updateAdminService(editingService.id, payload)
++        savedService = response.service
++        if (savedService) setServices((current) => current.map((service) => (service.id === savedService.id ? savedService : service)))
+         toast.success('Service updated.')
+       } else {
+-        await createAdminService(payload)
++        const response = await createAdminService(payload)
++        savedService = response.service
++        if (savedService) setServices((current) => [savedService, ...current])
+         toast.success('Service added.')
+       }
++      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+       setFormOpen(false)
+       setEditingService(null)
+       setForm(emptyForm)
+       setImageFile(null)
+-      setImagePreview('')
++      setImagePreview(savedService?.image || '')
+       refresh()
+     } catch (error) {
+       toast.error(error.response?.data?.message || 'Could not save service.')
+diff --git a/frontend/src/pages/admin/Testimonials.jsx b/frontend/src/pages/admin/Testimonials.jsx
+index 1531698..cfea2b3 100644
+--- a/frontend/src/pages/admin/Testimonials.jsx
++++ b/frontend/src/pages/admin/Testimonials.jsx
+@@ -117,18 +117,24 @@ export default function Testimonials() {
+     for (const [key, value] of Object.entries({ ...form, rating: Number(form.rating), displayOrder: Number(form.displayOrder) })) payload.append(key, value)
+     if (imageFile) payload.append('image', imageFile)
+     try {
++      let savedTestimonial = null
+       if (editing) {
+-        await updateAdminTestimonial(editing.id, payload)
++        const response = await updateAdminTestimonial(editing.id, payload)
++        savedTestimonial = response.testimonial
++        if (savedTestimonial) setTestimonials((current) => current.map((testimonial) => (testimonial.id === savedTestimonial.id ? savedTestimonial : testimonial)))
+         toast.success('Testimonial updated.')
+       } else {
+-        await createAdminTestimonial(payload)
++        const response = await createAdminTestimonial(payload)
++        savedTestimonial = response.testimonial
++        if (savedTestimonial) setTestimonials((current) => [savedTestimonial, ...current])
+         toast.success('Testimonial added.')
+       }
++      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+       setFormOpen(false)
+       setEditing(null)
+       setForm(emptyForm)
+       setImageFile(null)
+-      setImagePreview('')
++      setImagePreview(savedTestimonial?.profileImageUrl || '')
+       refresh()
+     } catch (error) {
+       toast.error(error.response?.data?.message || 'Could not save testimonial.')
+diff --git a/frontend/src/pages/public/Booking.jsx b/frontend/src/pages/public/Booking.jsx
+index b2de259..b4acbb5 100644
+--- a/frontend/src/pages/public/Booking.jsx
++++ b/frontend/src/pages/public/Booking.jsx
+@@ -108,8 +108,10 @@ export default function Booking() {
+     if (!booking.services.length) {
+       setCalendarDays([])
+       setTimeSlots([])
++      setLoadingDays(false)
+       return
+     }
++    let cancelled = false
+     setLoadingDays(true)
+     getAvailabilityDays({
+       month: monthDate.getMonth() + 1,
+@@ -117,16 +119,19 @@ export default function Booking() {
+       serviceIds: serviceQuery(booking.services),
+       durationMinutes: totals.totalDuration || 30,
+     })
+-      .then((data) => setCalendarDays(data.days || []))
+-      .catch(() => setCalendarDays([]))
+-      .finally(() => setLoadingDays(false))
++      .then((data) => { if (!cancelled) setCalendarDays(data.days || []) })
++      .catch(() => { if (!cancelled) setCalendarDays([]) })
++      .finally(() => { if (!cancelled) setLoadingDays(false) })
++    return () => { cancelled = true }
+   }, [booking.services, monthDate, totals.totalDuration])
+ 
+   useEffect(() => {
+     if (!booking.date || !booking.services.length) {
+       setTimeSlots([])
++      setLoadingTimes(false)
+       return
+     }
++    let cancelled = false
+     setLoadingTimes(true)
+     setNotice(null)
+     setSuggestions([])
+@@ -135,9 +140,10 @@ export default function Booking() {
+       serviceIds: serviceQuery(booking.services),
+       durationMinutes: totals.totalDuration || 30,
+     })
+-      .then((data) => setTimeSlots(data.times || []))
+-      .catch(() => setTimeSlots(fallbackTimes))
+-      .finally(() => setLoadingTimes(false))
++      .then((data) => { if (!cancelled) setTimeSlots(data.times || []) })
++      .catch(() => { if (!cancelled) setTimeSlots(fallbackTimes) })
++      .finally(() => { if (!cancelled) setLoadingTimes(false) })
++    return () => { cancelled = true }
+   }, [booking.date, booking.services, totals.totalDuration])
+ 
+   const updateCustomer = (field) => (event) => updateBooking({ customer: { ...booking.customer, [field]: event.target.value } })
+diff --git a/frontend/src/pages/public/Home.jsx b/frontend/src/pages/public/Home.jsx
+index 20a28a6..fdc5bf2 100644
+--- a/frontend/src/pages/public/Home.jsx
++++ b/frontend/src/pages/public/Home.jsx
+@@ -23,6 +23,14 @@ const fallbackTestimonials = [
+   { name: 'Kemi O.', rating: 5, text: 'Every detail felt intentional, from the welcome to the final finish. It is exactly the kind of beauty space Lagos needs.' },
+ ]
+ 
++function TestimonialAvatar({ item }) {
++  const [failed, setFailed] = useState(false)
++  const initial = item.name?.slice(0, 1) || 'A'
++  return <div className="testimonial-card__avatar" aria-hidden="true">
++    {item.image && !failed ? <img src={item.image} alt="" onError={() => setFailed(true)} /> : initial}
++  </div>
++}
++
+ export default function Home() {
+   const { isLive } = useSiteMode()
+   const [testimonials, setTestimonials] = useState(fallbackTestimonials)
+@@ -97,7 +105,7 @@ export default function Home() {
+       <div className="testimonial-grid">
+         {testimonials.map((item) => (
+           <article className="testimonial-card" key={item.name}>
+-            <div className="testimonial-card__avatar" aria-hidden="true">{item.image ? <img src={item.image} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = imagePaths.placeholders.avatar }} /> : item.name.slice(0, 1)}</div>
++            <TestimonialAvatar item={item} />
+             <StarRating rating={item.rating} className="testimonial-card__rating" />
+             <p>{item.text}</p>
+             <strong>{item.name}</strong>
+diff --git a/frontend/src/pages/public/ServiceDetail.jsx b/frontend/src/pages/public/ServiceDetail.jsx
+index f0054a2..8dde4b6 100644
+--- a/frontend/src/pages/public/ServiceDetail.jsx
++++ b/frontend/src/pages/public/ServiceDetail.jsx
+@@ -2,6 +2,7 @@ import { ArrowLeft, Clock3 } from 'lucide-react'
+ import { useEffect, useState } from 'react'
+ import { Link, useParams } from 'react-router-dom'
+ import Button from '../../components/common/Button'
++import ImagePlaceholder from '../../components/common/ImagePlaceholder'
+ import Loader from '../../components/common/Loader'
+ import { getServiceImage } from '../../data/allayImages'
+ import { placeholderServices } from '../../data/placeholderServices'
+@@ -35,7 +36,7 @@ export default function ServiceDetail() {
+ 
+   return <section className="service-detail section">
+     <div className="service-detail__image">
+-      <img src={image} alt={`${service.name} treatment`} width="900" height="1200" loading="eager" fetchPriority="high" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} />
++      <ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment`} variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
+     </div>
+     <div className="service-detail__content">
+       <Link className="text-link" to="/services"><ArrowLeft size={15} /> All services</Link>
+diff --git a/frontend/src/routes/AppRoutes.jsx b/frontend/src/routes/AppRoutes.jsx
+index 89bcdcd..e3ae82e 100644
+--- a/frontend/src/routes/AppRoutes.jsx
++++ b/frontend/src/routes/AppRoutes.jsx
+@@ -13,6 +13,7 @@ import Payments from '../pages/admin/Payments'
+ import ServicesManager from '../pages/admin/ServicesManager'
+ import Settings from '../pages/admin/Settings'
+ import Testimonials from '../pages/admin/Testimonials'
++import Users from '../pages/admin/Users'
+ import WaitlistManager from '../pages/admin/WaitlistManager'
+ import SignIn from '../pages/auth/SignIn'
+ import SignUp from '../pages/auth/SignUp'
+@@ -56,6 +57,7 @@ export default function AppRoutes() {
+         <Route index element={<Dashboard />} />
+         <Route path="bookings" element={<Bookings />} />
+         <Route path="bookings/:id" element={<BookingDetails />} />
++        <Route path="users" element={<Users />} />
+         <Route path="customers" element={<Customers />} />
+         <Route path="services" element={<ServicesManager />} />
+         <Route path="testimonials" element={<Testimonials />} />
+diff --git a/frontend/src/services/adminApi.js b/frontend/src/services/adminApi.js
+index b12d08d..d0b736c 100644
+--- a/frontend/src/services/adminApi.js
++++ b/frontend/src/services/adminApi.js
+@@ -1,6 +1,11 @@
+ import api from './api'
+ import { resolveImageUrl } from '../utils/resolveImageUrl'
+ 
++function normalizeService(service = {}) {
++  const imageUrl = resolveImageUrl(service.imageUrl || service.image || service.localImagePath || '')
++  return { ...service, imageUrl, image: imageUrl }
++}
++
+ function normalizeTestimonial(testimonial = {}) {
+   const imageUrl = resolveImageUrl(testimonial.imageUrl || testimonial.profileImageUrl || '')
+   return { ...testimonial, imageUrl, profileImageUrl: imageUrl }
+@@ -9,12 +14,14 @@ function normalizeTestimonial(testimonial = {}) {
+ export const loginAdmin = (data) => api.post('/admin/auth/login', data).then((response) => response.data)
+ export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
+ export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
++export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ data }) => data)
++export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(({ data }) => data)
+ export const getAdminCustomers = (params) => api.get('/admin/customers', { params }).then(({ data }) => data)
+ export const getAdminCustomer = (id) => api.get(`/admin/customers/${id}`).then(({ data }) => data)
+-export const getAdminServices = () => api.get('/admin/services').then(({ data }) => data)
++export const getAdminServices = () => api.get('/admin/services').then(({ data }) => ({ ...data, services: (data.services || []).map(normalizeService) }))
+ export const getAdminServiceCategories = () => api.get('/admin/services/meta/categories').then(({ data }) => data)
+-export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => response)
+-export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => response)
++export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
++export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
+ export const deleteAdminService = (id) => api.delete(`/admin/services/${id}`)
+ export const getAdminTestimonials = () => api.get('/admin/testimonials').then(({ data }) => ({ ...data, testimonials: (data.testimonials || []).map(normalizeTestimonial) }))
+ export const createAdminTestimonial = (data) => api.post('/admin/testimonials', data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))
+diff --git a/frontend/src/styles/global.css b/frontend/src/styles/global.css
+index 7b2848b..1ad185c 100644
+--- a/frontend/src/styles/global.css
++++ b/frontend/src/styles/global.css
+@@ -21,26 +21,25 @@ h1, h2, h3 {
+ }
+ p { color: var(--color-text-soft); line-height: 1.75; }
+ 
+-.brand {
++.brand-logo, .brand, .logo {
++  position: relative;
++  width: 155px;
++  min-width: 108px;
++  height: 42px;
+   display: inline-flex;
+-  flex-direction: column;
+-  width: max-content;
+-  color: var(--color-primary);
+-  line-height: 0.82;
+-  letter-spacing: 0.17em;
++  align-items: center;
+ }
+-.brand span { font-family: var(--font-heading); font-size: 28px; font-weight: 600; }
+-.brand small { margin: 9px 0 0 4px; font-size: 8px; letter-spacing: 0.65em; }
+-.brand--light { color: var(--color-on-dark); }
+-
+-.logo { position: relative; min-width: 108px; min-height: 42px; display: inline-flex; align-items: center; color: var(--color-primary); }
+-.logo > img { position: absolute; inset: 0 auto auto 0; width: auto; height: 42px; max-width: 155px; object-fit: contain; opacity: 0; transition: opacity var(--transition); }
+-.logo.has-image > img { opacity: 1; }
+-.logo__fallback { display: inline-flex; flex-direction: column; line-height: 0.82; letter-spacing: 0.17em; }
+-.logo__fallback strong { font-family: var(--font-heading); font-size: 28px; font-weight: 600; }
+-.logo__fallback small { margin: 9px 0 0 4px; font-size: 8px; letter-spacing: 0.65em; }
+-.logo.has-image .logo__fallback { visibility: hidden; }
+-.logo--dark { color: var(--color-on-dark); }
++.brand-logo img, .brand img, .logo img { width: auto; height: 42px; max-width: 155px; object-fit: contain; }
++.brand-logo__missing {
++  width: 108px;
++  height: 34px;
++  display: block;
++  border: 1px dashed currentColor;
++  border-radius: var(--radius-sm);
++  opacity: 0.45;
++}
++.brand-logo--white, .brand.brand-logo--white { color: var(--color-on-dark); }
++.brand-logo--brown, .brand.brand-logo--brown, .logo { color: var(--color-primary); }
+ 
+ .image-placeholder { position: relative; width: 100%; min-height: 240px; overflow: hidden; isolation: isolate; background: var(--color-stone); }
+ .image-placeholder--rounded, .image-placeholder--card { border-radius: var(--radius-md); }
+diff --git a/frontend/src/styles/public.css b/frontend/src/styles/public.css
+index 6c0fc7e..08b6359 100644
+--- a/frontend/src/styles/public.css
++++ b/frontend/src/styles/public.css
+@@ -264,7 +264,7 @@
+ .booking-service.is-selected { border-color: var(--color-olive); box-shadow: 0 0 0 2px var(--color-sage-wash), var(--shadow-soft); }
+ .booking-service__image { display: block; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: var(--color-beige); }
+ .booking-service__image img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
+-.booking-service > .image-placeholder { min-height: 115px; border-radius: 0; }
++.booking-service__image > .image-placeholder { height: 100%; min-height: 115px; border-radius: 0; }
+ .booking-service__check { position: absolute; z-index: 4; right: 10px; top: 10px; width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-cream-glass); color: transparent; }
+ .booking-service.is-selected .booking-service__check { border-color: var(--color-olive); background: var(--color-olive); color: var(--color-on-dark); }
+ .booking-service__body { display: flex; flex-direction: column; padding: 16px; }
+diff --git a/frontend/src/utils/imagePaths.js b/frontend/src/utils/imagePaths.js
+index 538dddd..6901f44 100644
+--- a/frontend/src/utils/imagePaths.js
++++ b/frontend/src/utils/imagePaths.js
+@@ -1,19 +1,22 @@
+ export const imagePaths = {
+   brand: {
+-    logoDark: '/images/allay/brand/allay-logo-dark.png',
+-    logoLight: '/images/allay/brand/allay-logo-light.png',
++    logoBrown: '/images/brand/allay-logo-brown.svg',
++    logoWhite: '/images/brand/allay-logo-white.svg',
++    logoDark: '/images/brand/allay-logo-white.svg',
++    logoLight: '/images/brand/allay-logo-brown.svg',
+     mark: '/images/allay/brand/allay-mark.png',
+     favicon: '/images/allay/brand/favicon.png',
+   },
+   home: {
+     heroMain: '/images/allay/home/home-hero-main.png',
+-    heroSecondary: '/images/allay/home/home-hero-secondary.png',
+-    heroDetail: '/images/allay/home/home-hero-detail.png',
++    heroSecondary: '/images/allay/home/home-hero-main.png',
++    heroDetail: '/images/allay/home/home-wellness-section.png',
+     texture: '/images/allay/home/home-texture.png',
+     wellnessSection: '/images/allay/home/home-wellness-section.png',
+-    experienceSection: '/images/allay/home/home-experience-section.png',
++    experienceSection: '/images/allay/home/home-wellness-section.png',
+   },
+   categories: {
++    allServices: '/images/allay/categories/all-services.png',
+     spa: '/images/allay/categories/category-spa.png',
+     pilates: '/images/allay/categories/category-pilates.png',
+     nailStudio: '/images/allay/categories/category-nail-studio.png',
+@@ -23,69 +26,69 @@ export const imagePaths = {
+     massage: '/images/allay/categories/category-massage.png',
+     sauna: '/images/allay/categories/sauna.png',
+     headspa: '/images/allay/categories/category-headspa.png',
+-    hairBraiding: '/images/allay/categories/category-hair-braiding.png',
++    hairBraiding: '/images/allay/categories/category-wigs.png',
+     wigs: '/images/allay/categories/category-wigs.png',
+     bodyBeauty: '/images/allay/categories/body-and-beauty.png',
+     advancedSkinTreatment: '/images/allay/categories/advanced-skin-treatment.png',
+   },
+   about: {
+     hero: '/images/allay/about/about-hero.png',
+-    interior: '/images/allay/about/about-interior.jpg',
+-    care: '/images/allay/about/about-care.jpg',
+-    brandStory: '/images/allay/about/about-brand-story.jpg',
++    interior: '/images/allay/about/about-interior.png',
++    care: '/images/allay/about/about-interior.png',
++    brandStory: '/images/allay/about/about-hero.png',
+   },
+   contact: {
+     hero: '/images/allay/contact/contact-hero.png',
+-    location: '/images/allay/contact/contact-location.jpg',
++    location: '/images/allay/contact/contact-hero.png',
+     interior: '/images/allay/contact/contact-interior.png',
+   },
+   auth: {
+-    signin: '/images/allay/auth/auth-signin.jpg',
+-    signup: '/images/allay/auth/auth-signup.jpg',
+-    adminLoginBg: '/images/allay/auth/admin-login-bg.jpg',
+-    side: '/images/allay/auth/auth-side.jpg',
++    signin: '/images/allay-house-hero.png',
++    signup: '/images/allay-house-hero.png',
++    adminLoginBg: '/images/allay-house-hero.png',
++    side: '/images/allay-house-hero.png',
+   },
+   waitlist: {
+-    hero: '/images/allay/waitlist/waitlist-hero.jpg',
+-    side: '/images/allay/waitlist/waitlist-side.jpg',
+-    success: '/images/allay/waitlist/waitlist-success.jpg',
++    hero: '/images/allay-house-hero.png',
++    side: '/images/allay-house-hero.png',
++    success: '/images/allay-house-hero.png',
+   },
+   booking: {
+-    hero: '/images/allay/booking/booking-hero.jpg',
+-    side: '/images/allay/booking/booking-side.jpg',
+-    success: '/images/allay/booking/booking-success.jpg',
+-    empty: '/images/allay/booking/booking-empty.jpg',
++    hero: '/images/allay-house-hero.png',
++    side: '/images/allay-house-hero.png',
++    success: '/images/allay-house-hero.png',
++    empty: '/images/allay-house-hero.png',
+   },
+   services: {
+-    swedishMassage: '/images/allay/services/service-swedish-massage.jpg',
+-    deepTissueMassage: '/images/allay/services/service-deep-tissue-massage.jpg',
+-    aromatherapyMassage: '/images/allay/services/service-aromatherapy-massage.jpg',
+-    classicFacial: '/images/allay/services/service-classic-facial.jpg',
+-    hydratingFacial: '/images/allay/services/service-hydrating-facial.jpg',
+-    glowFacial: '/images/allay/services/service-glow-facial.jpg',
+-    saunaSession: '/images/allay/services/service-sauna-session.jpg',
+-    headspaTreatment: '/images/allay/services/service-headspa-treatment.jpg',
+-    classicManicure: '/images/allay/services/service-classic-manicure.jpg',
+-    classicPedicure: '/images/allay/services/service-classic-pedicure.jpg',
+-    gelPolish: '/images/allay/services/service-gel-polish.jpg',
+-    nailArt: '/images/allay/services/service-nail-art.jpg',
+-    lashExtensions: '/images/allay/services/service-lash-extensions.jpg',
+-    lashLift: '/images/allay/services/service-lash-lift.jpg',
+-    browShaping: '/images/allay/services/service-brow-shaping.jpg',
+-    hairStyling: '/images/allay/services/service-hair-styling.jpg',
+-    hairBraiding: '/images/allay/services/service-hair-braiding.jpg',
+-    wigInstallation: '/images/allay/services/service-wig-installation.jpg',
+-    wigStyling: '/images/allay/services/service-wig-styling.jpg',
+-    privatePilates: '/images/allay/services/service-private-pilates.jpg',
+-    groupPilates: '/images/allay/services/service-group-pilates.jpg',
++    swedishMassage: '',
++    deepTissueMassage: '',
++    aromatherapyMassage: '',
++    classicFacial: '',
++    hydratingFacial: '',
++    glowFacial: '',
++    saunaSession: '',
++    headspaTreatment: '',
++    classicManicure: '',
++    classicPedicure: '',
++    gelPolish: '',
++    nailArt: '',
++    lashExtensions: '',
++    lashLift: '',
++    browShaping: '',
++    hairStyling: '',
++    hairBraiding: '',
++    wigInstallation: '',
++    wigStyling: '',
++    privatePilates: '',
++    groupPilates: '',
+   },
+   placeholders: {
+-    hero: '/images/allay/placeholders/placeholder-hero.jpg',
+-    category: '/images/allay/placeholders/placeholder-category.jpg',
+-    service: '/images/allay/placeholders/placeholder-service.jpg',
+-    avatar: '/images/allay/placeholders/placeholder-avatar.jpg',
+-    empty: '/images/allay/placeholders/placeholder-empty.jpg',
+-    logo: '/images/allay/placeholders/placeholder-logo.png',
++    hero: '/images/allay-house-hero.png',
++    category: '/images/allay/categories/all-services.png',
++    service: '',
++    avatar: '',
++    empty: '',
++    logo: '',
+   },
+ }
+ 
+diff --git a/frontend/src/utils/resolveImageUrl.js b/frontend/src/utils/resolveImageUrl.js
+index 527c747..b6f59d7 100644
+--- a/frontend/src/utils/resolveImageUrl.js
++++ b/frontend/src/utils/resolveImageUrl.js
+@@ -11,6 +11,7 @@ const apiOrigin = (() => {
+ export function resolveImageUrl(value, fallback = '') {
+   const raw = String(value || '').trim()
+   if (!raw) return fallback
++  if (raw.includes('/images/allay/placeholders/')) return fallback
+   if (/^(https?:|blob:|data:)/i.test(raw)) return raw
+   if (raw.startsWith('/images/')) return raw
+   if (raw.startsWith('/uploads/')) return `${apiOrigin}${raw}`

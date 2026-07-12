@@ -1,5 +1,0 @@
-﻿This is a placeholder for home-hero-detail.jpg.
-Replace this TXT file with the real image named exactly: home-hero-detail.jpg
-The frontend code references: /images/allay/home/home-hero-detail.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

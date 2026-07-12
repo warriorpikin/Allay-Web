@@ -11,6 +11,7 @@ const apiOrigin = (() => {
 export function resolveImageUrl(value, fallback = '') {
   const raw = String(value || '').trim()
   if (!raw) return fallback
+  if (raw.includes('/images/allay/placeholders/')) return fallback
   if (/^(https?:|blob:|data:)/i.test(raw)) return raw
   if (raw.startsWith('/images/')) return raw
   if (raw.startsWith('/uploads/')) return `${apiOrigin}${raw}`

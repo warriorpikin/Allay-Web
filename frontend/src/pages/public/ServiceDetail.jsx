@@ -2,6 +2,7 @@ import { ArrowLeft, Clock3 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
+import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import { getServiceImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
@@ -35,7 +36,7 @@ export default function ServiceDetail() {
 
   return <section className="service-detail section">
     <div className="service-detail__image">
-      <img src={image} alt={`${service.name} treatment`} width="900" height="1200" loading="eager" fetchPriority="high" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} />
+      <ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment`} variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
     </div>
     <div className="service-detail__content">
       <Link className="text-link" to="/services"><ArrowLeft size={15} /> All services</Link>

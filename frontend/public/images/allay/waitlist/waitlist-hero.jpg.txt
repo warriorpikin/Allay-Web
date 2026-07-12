@@ -1,5 +1,0 @@
-﻿This is a placeholder for waitlist-hero.jpg.
-Replace this TXT file with the real image named exactly: waitlist-hero.jpg
-The frontend code references: /images/allay/waitlist/waitlist-hero.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

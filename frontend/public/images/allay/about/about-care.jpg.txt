@@ -1,5 +1,0 @@
-﻿This is a placeholder for about-care.jpg.
-Replace this TXT file with the real image named exactly: about-care.jpg
-The frontend code references: /images/allay/about/about-care.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

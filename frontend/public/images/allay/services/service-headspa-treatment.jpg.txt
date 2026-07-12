@@ -1,5 +1,0 @@
-﻿This is a placeholder for service-headspa-treatment.jpg.
-Replace this TXT file with the real image named exactly: service-headspa-treatment.jpg
-The frontend code references: /images/allay/services/service-headspa-treatment.jpg
-Use JPG format.
-Recommended size: 1200x800.

@@ -1,5 +1,0 @@
-﻿This is a placeholder for allay-mark.png.
-Replace this TXT file with the real image named exactly: allay-mark.png
-The frontend code references: /images/allay/brand/allay-mark.png
-Use PNG format.
-Recommended size: Logo mark PNG with transparent background..

@@ -1,6 +1,11 @@
 import api from './api'
 import { resolveImageUrl } from '../utils/resolveImageUrl'
 
+function normalizeService(service = {}) {
+  const imageUrl = resolveImageUrl(service.imageUrl || service.image || service.localImagePath || '')
+  return { ...service, imageUrl, image: imageUrl }
+}
+
 function normalizeTestimonial(testimonial = {}) {
   const imageUrl = resolveImageUrl(testimonial.imageUrl || testimonial.profileImageUrl || '')
   return { ...testimonial, imageUrl, profileImageUrl: imageUrl }
@@ -9,12 +14,14 @@ function normalizeTestimonial(testimonial = {}) {
 export const loginAdmin = (data) => api.post('/admin/auth/login', data).then((response) => response.data)
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
 export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
+export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ data }) => data)
+export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(({ data }) => data)
 export const getAdminCustomers = (params) => api.get('/admin/customers', { params }).then(({ data }) => data)
 export const getAdminCustomer = (id) => api.get(`/admin/customers/${id}`).then(({ data }) => data)
-export const getAdminServices = () => api.get('/admin/services').then(({ data }) => data)
+export const getAdminServices = () => api.get('/admin/services').then(({ data }) => ({ ...data, services: (data.services || []).map(normalizeService) }))
 export const getAdminServiceCategories = () => api.get('/admin/services/meta/categories').then(({ data }) => data)
-export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => response)
-export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => response)
+export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
+export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
 export const deleteAdminService = (id) => api.delete(`/admin/services/${id}`)
 export const getAdminTestimonials = () => api.get('/admin/testimonials').then(({ data }) => ({ ...data, testimonials: (data.testimonials || []).map(normalizeTestimonial) }))
 export const createAdminTestimonial = (data) => api.post('/admin/testimonials', data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))

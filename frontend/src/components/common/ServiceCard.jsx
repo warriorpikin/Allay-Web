@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { getServiceImage } from '../../data/allayImages'
 import { formatPriceLabel } from '../../utils/formatCurrency'
 import Button from './Button'
+import ImagePlaceholder from './ImagePlaceholder'
 
 export default function ServiceCard({ service }) {
   const image = service.imageUrl || service.image || getServiceImage(service.slug)
   return <article className="service-card">
     <Link className="service-card__image" to={`/services/${service.slug}`}>
-      <img src={image} alt={`${service.name} treatment`} width="640" height="480" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true }} />
+      <ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment`} variant="card" width="640" height="480" />
     </Link>
     <div className="service-card__body">
       <span className="service-card__category">{service.category}</span>

@@ -1,5 +1,0 @@
-﻿This is a placeholder for category-facials.jpg.
-Replace this TXT file with the real image named exactly: category-facials.jpg
-The frontend code references: /images/allay/categories/category-facials.jpg
-Use JPG format.
-Recommended size: 1200x900.

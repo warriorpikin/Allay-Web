@@ -13,6 +13,7 @@ import Payments from '../pages/admin/Payments'
 import ServicesManager from '../pages/admin/ServicesManager'
 import Settings from '../pages/admin/Settings'
 import Testimonials from '../pages/admin/Testimonials'
+import Users from '../pages/admin/Users'
 import WaitlistManager from '../pages/admin/WaitlistManager'
 import SignIn from '../pages/auth/SignIn'
 import SignUp from '../pages/auth/SignUp'
@@ -56,6 +57,7 @@ export default function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="bookings/:id" element={<BookingDetails />} />
+        <Route path="users" element={<Users />} />
         <Route path="customers" element={<Customers />} />
         <Route path="services" element={<ServicesManager />} />
         <Route path="testimonials" element={<Testimonials />} />

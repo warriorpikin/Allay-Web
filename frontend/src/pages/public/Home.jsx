@@ -23,6 +23,14 @@ const fallbackTestimonials = [
   { name: 'Kemi O.', rating: 5, text: 'Every detail felt intentional, from the welcome to the final finish. It is exactly the kind of beauty space Lagos needs.' },
 ]
 
+function TestimonialAvatar({ item }) {
+  const [failed, setFailed] = useState(false)
+  const initial = item.name?.slice(0, 1) || 'A'
+  return <div className="testimonial-card__avatar" aria-hidden="true">
+    {item.image && !failed ? <img src={item.image} alt="" onError={() => setFailed(true)} /> : initial}
+  </div>
+}
+
 export default function Home() {
   const { isLive } = useSiteMode()
   const [testimonials, setTestimonials] = useState(fallbackTestimonials)
@@ -97,7 +105,7 @@ export default function Home() {
       <div className="testimonial-grid">
         {testimonials.map((item) => (
           <article className="testimonial-card" key={item.name}>
-            <div className="testimonial-card__avatar" aria-hidden="true">{item.image ? <img src={item.image} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = imagePaths.placeholders.avatar }} /> : item.name.slice(0, 1)}</div>
+            <TestimonialAvatar item={item} />
             <StarRating rating={item.rating} className="testimonial-card__rating" />
             <p>{item.text}</p>
             <strong>{item.name}</strong>

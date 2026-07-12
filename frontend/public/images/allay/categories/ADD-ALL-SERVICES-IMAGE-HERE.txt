@@ -1,0 +1,3 @@
+Place the official All Services category image in this folder as:
+
+all-services.png

@@ -1,5 +1,0 @@
-﻿This is a placeholder for waitlist-success.jpg.
-Replace this TXT file with the real image named exactly: waitlist-success.jpg
-The frontend code references: /images/allay/waitlist/waitlist-success.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

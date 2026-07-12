@@ -7,12 +7,16 @@ const paymentStatusSchema = z.object({ paymentStatus: z.enum(['unpaid', 'paid', 
 export async function listAdminBookings(req, res, next) {
   try {
     const result = await query(
-      `SELECT id, booking_reference AS "bookingReference", customer_name AS "customerName", customer_email AS "customerEmail",
-        customer_phone AS "customerPhone", status, payment_status AS "paymentStatus", appointment_date AS "appointmentDate",
-        start_time AS "startTime", end_time AS "endTime", total_duration_minutes AS "totalDurationMinutes",
-        subtotal, discount_amount AS "discountAmount", total_amount AS "totalAmount", created_at AS "createdAt"
-       FROM bookings
-       ORDER BY appointment_date DESC, start_time DESC
+      `SELECT b.id, b.booking_reference AS "bookingReference", b.customer_name AS "customerName", b.customer_email AS "customerEmail",
+        b.customer_phone AS "customerPhone", b.status, b.payment_status AS "paymentStatus", b.appointment_date AS "appointmentDate",
+        b.start_time AS "startTime", b.end_time AS "endTime", b.total_duration_minutes AS "totalDurationMinutes",
+        b.subtotal, b.discount_amount AS "discountAmount", b.total_amount AS "totalAmount", b.customer_note AS "customerNote",
+        b.admin_note AS "adminNote", b.updated_at AS "updatedAt", b.created_at AS "createdAt",
+        COALESCE(STRING_AGG(bs.service_name, ', ' ORDER BY bs.created_at ASC), '') AS "serviceNames"
+       FROM bookings b
+       LEFT JOIN booking_services bs ON bs.booking_id = b.id
+       GROUP BY b.id
+       ORDER BY b.appointment_date DESC, b.start_time DESC
        LIMIT 200`,
     )
     res.json({ bookings: result.rows })

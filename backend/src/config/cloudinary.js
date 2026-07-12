@@ -12,4 +12,13 @@ export function hasCloudinaryConfig() {
   return Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET)
 }
 
+export function getCloudinaryConfigStatus() {
+  return {
+    cloudName: Boolean(env.CLOUDINARY_CLOUD_NAME),
+    apiKey: Boolean(env.CLOUDINARY_API_KEY),
+    apiSecret: Boolean(env.CLOUDINARY_API_SECRET),
+    configured: hasCloudinaryConfig(),
+  }
+}
+
 export { cloudinary }

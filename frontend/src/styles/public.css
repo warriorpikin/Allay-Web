@@ -264,7 +264,7 @@
 .booking-service.is-selected { border-color: var(--color-olive); box-shadow: 0 0 0 2px var(--color-sage-wash), var(--shadow-soft); }
 .booking-service__image { display: block; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: var(--color-beige); }
 .booking-service__image img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; }
-.booking-service > .image-placeholder { min-height: 115px; border-radius: 0; }
+.booking-service__image > .image-placeholder { height: 100%; min-height: 115px; border-radius: 0; }
 .booking-service__check { position: absolute; z-index: 4; right: 10px; top: 10px; width: 27px; height: 27px; display: grid; place-items: center; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-cream-glass); color: transparent; }
 .booking-service.is-selected .booking-service__check { border-color: var(--color-olive); background: var(--color-olive); color: var(--color-on-dark); }
 .booking-service__body { display: flex; flex-direction: column; padding: 16px; }

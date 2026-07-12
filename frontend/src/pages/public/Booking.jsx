@@ -108,8 +108,10 @@ export default function Booking() {
     if (!booking.services.length) {
       setCalendarDays([])
       setTimeSlots([])
+      setLoadingDays(false)
       return
     }
+    let cancelled = false
     setLoadingDays(true)
     getAvailabilityDays({
       month: monthDate.getMonth() + 1,
@@ -117,16 +119,19 @@ export default function Booking() {
       serviceIds: serviceQuery(booking.services),
       durationMinutes: totals.totalDuration || 30,
     })
-      .then((data) => setCalendarDays(data.days || []))
-      .catch(() => setCalendarDays([]))
-      .finally(() => setLoadingDays(false))
+      .then((data) => { if (!cancelled) setCalendarDays(data.days || []) })
+      .catch(() => { if (!cancelled) setCalendarDays([]) })
+      .finally(() => { if (!cancelled) setLoadingDays(false) })
+    return () => { cancelled = true }
   }, [booking.services, monthDate, totals.totalDuration])
 
   useEffect(() => {
     if (!booking.date || !booking.services.length) {
       setTimeSlots([])
+      setLoadingTimes(false)
       return
     }
+    let cancelled = false
     setLoadingTimes(true)
     setNotice(null)
     setSuggestions([])
@@ -135,9 +140,10 @@ export default function Booking() {
       serviceIds: serviceQuery(booking.services),
       durationMinutes: totals.totalDuration || 30,
     })
-      .then((data) => setTimeSlots(data.times || []))
-      .catch(() => setTimeSlots(fallbackTimes))
-      .finally(() => setLoadingTimes(false))
+      .then((data) => { if (!cancelled) setTimeSlots(data.times || []) })
+      .catch(() => { if (!cancelled) setTimeSlots(fallbackTimes) })
+      .finally(() => { if (!cancelled) setLoadingTimes(false) })
+    return () => { cancelled = true }
   }, [booking.date, booking.services, totals.totalDuration])
 
   const updateCustomer = (field) => (event) => updateBooking({ customer: { ...booking.customer, [field]: event.target.value } })

@@ -149,18 +149,24 @@ export default function ServicesManager() {
         simultaneousCapacity: String(Number(form.simultaneousCapacity)),
         displayOrder: String(Number(form.displayOrder)),
       }, imageFile)
+      let savedService = null
       if (editingService) {
-        await updateAdminService(editingService.id, payload)
+        const response = await updateAdminService(editingService.id, payload)
+        savedService = response.service
+        if (savedService) setServices((current) => current.map((service) => (service.id === savedService.id ? savedService : service)))
         toast.success('Service updated.')
       } else {
-        await createAdminService(payload)
+        const response = await createAdminService(payload)
+        savedService = response.service
+        if (savedService) setServices((current) => [savedService, ...current])
         toast.success('Service added.')
       }
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
       setFormOpen(false)
       setEditingService(null)
       setForm(emptyForm)
       setImageFile(null)
-      setImagePreview('')
+      setImagePreview(savedService?.image || '')
       refresh()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save service.')

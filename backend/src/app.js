@@ -1,6 +1,8 @@
 import cors from 'cors'
 import express from 'express'
 import helmet from 'helmet'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { env } from './config/env.js'
 import { query } from './config/database.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
@@ -12,6 +14,8 @@ import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
 import adminServiceRoutes from './routes/adminServiceRoutes.js'
 import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
 import adminTestimonialRoutes from './routes/adminTestimonialRoutes.js'
+import adminUploadRoutes from './routes/adminUploadRoutes.js'
+import adminUserRoutes from './routes/adminUserRoutes.js'
 import adminWaitlistRoutes from './routes/adminWaitlistRoutes.js'
 import availabilityRoutes from './routes/availabilityRoutes.js'
 import bookingRoutes from './routes/bookingRoutes.js'
@@ -24,6 +28,8 @@ import testimonialRoutes from './routes/testimonialRoutes.js'
 import waitlistRoutes from './routes/waitlistRoutes.js'
 
 const app = express()
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const uploadsDir = path.resolve(__dirname, '../../uploads')
 const allowedOrigins = new Set([
   env.FRONTEND_URL,
   'http://localhost:5173',
@@ -40,6 +46,10 @@ app.use(cors({
   credentials: true,
 }))
 app.use(express.json({ limit: '4mb' }))
+app.use('/uploads', express.static(uploadsDir, {
+  fallthrough: true,
+  maxAge: env.NODE_ENV === 'production' ? '7d' : 0,
+}))
 
 app.get('/api/health', async (req, res, next) => {
   try {
@@ -58,6 +68,8 @@ app.use('/api/admin/dashboard', adminDashboardRoutes)
 app.use('/api/admin/services', adminServiceRoutes)
 app.use('/api/admin/settings', adminSettingsRoutes)
 app.use('/api/admin/testimonials', adminTestimonialRoutes)
+app.use('/api/admin/uploads', adminUploadRoutes)
+app.use('/api/admin/users', adminUserRoutes)
 app.use('/api/admin/waitlist', adminWaitlistRoutes)
 app.use('/api/availability', availabilityRoutes)
 app.use('/api/bookings', bookingRoutes)

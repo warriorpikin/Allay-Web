@@ -1,5 +1,0 @@
-﻿This is a placeholder for about-brand-story.jpg.
-Replace this TXT file with the real image named exactly: about-brand-story.jpg
-The frontend code references: /images/allay/about/about-brand-story.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

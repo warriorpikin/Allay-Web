@@ -8,6 +8,7 @@ export const publicNavigationLinks = [
 export const adminNavigationLinks = [
   { label: 'Overview', to: '/allay-admin', end: true },
   { label: 'Bookings', to: '/allay-admin/bookings' },
+  { label: 'Users', to: '/allay-admin/users' },
   { label: 'Customers', to: '/allay-admin/customers' },
   { label: 'Availability', to: '/allay-admin/availability' },
   { label: 'Services', to: '/allay-admin/services' },

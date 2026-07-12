@@ -1,5 +1,0 @@
-﻿This is a placeholder for service-brow-shaping.jpg.
-Replace this TXT file with the real image named exactly: service-brow-shaping.jpg
-The frontend code references: /images/allay/services/service-brow-shaping.jpg
-Use JPG format.
-Recommended size: 1200x800.

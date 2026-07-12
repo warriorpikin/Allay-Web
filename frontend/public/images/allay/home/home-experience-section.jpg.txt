@@ -1,5 +1,0 @@
-﻿This is a placeholder for home-experience-section.jpg.
-Replace this TXT file with the real image named exactly: home-experience-section.jpg
-The frontend code references: /images/allay/home/home-experience-section.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

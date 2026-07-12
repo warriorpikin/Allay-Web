@@ -1,5 +1,0 @@
-﻿This is a placeholder for service-hair-braiding.jpg.
-Replace this TXT file with the real image named exactly: service-hair-braiding.jpg
-The frontend code references: /images/allay/services/service-hair-braiding.jpg
-Use JPG format.
-Recommended size: 1200x800.

@@ -1,5 +1,0 @@
-﻿This is a placeholder for auth-signin.jpg.
-Replace this TXT file with the real image named exactly: auth-signin.jpg
-The frontend code references: /images/allay/auth/auth-signin.jpg
-Use JPG format.
-Recommended size: 1200x1600.

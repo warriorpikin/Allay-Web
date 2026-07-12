@@ -5,17 +5,12 @@ ALTER TABLE customers
   ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'active';
 
 ALTER TABLE services
-  ADD COLUMN IF NOT EXISTS image_public_id TEXT,
+  ADD COLUMN IF NOT EXISTS image_storage_key TEXT,
   ADD COLUMN IF NOT EXISTS bookable BOOLEAN NOT NULL DEFAULT TRUE;
 
 ALTER TABLE testimonials
   ADD COLUMN IF NOT EXISTS customer_role VARCHAR(160),
-  ADD COLUMN IF NOT EXISTS image_url TEXT,
-  ADD COLUMN IF NOT EXISTS image_public_id TEXT;
-
-UPDATE testimonials
-SET image_url = COALESCE(image_url, profile_image_url)
-WHERE profile_image_url IS NOT NULL;
+  ADD COLUMN IF NOT EXISTS profile_image_storage_key TEXT;
 
 ALTER TABLE testimonials
   ALTER COLUMN rating TYPE NUMERIC(2,1) USING rating::numeric,
@@ -51,19 +46,19 @@ ON CONFLICT (slug) DO UPDATE SET
 
 INSERT INTO services (category_id, name, slug, description, duration_minutes, price, image_url, is_active, is_discount_eligible, simultaneous_capacity, display_order)
 VALUES
-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, '/images/allay/services/service-glow-facial.jpg', TRUE, TRUE, 7, 1),
-  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, '/images/allay/services/service-hydrating-facial.jpg', TRUE, TRUE, 7, 2),
-  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, '/images/allay/services/service-deep-tissue-massage.jpg', TRUE, TRUE, 7, 3),
-  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, '/images/allay/services/service-sauna-session.jpg', TRUE, TRUE, 7, 4),
-  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, '/images/allay/services/service-headspa-treatment.jpg', TRUE, TRUE, 7, 5),
-  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, '/images/allay/services/service-group-pilates.jpg', TRUE, TRUE, 7, 6),
-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, '/images/allay/services/service-brow-shaping.jpg', TRUE, TRUE, 7, 7),
-  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, '/images/allay/services/service-lash-lift.jpg', TRUE, TRUE, 7, 8),
-  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, '/images/allay/services/service-hair-styling.jpg', TRUE, TRUE, 7, 9),
-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, '/images/allay/services/service-hair-braiding.jpg', TRUE, TRUE, 7, 10),
-  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, '/images/allay/services/service-wig-styling.jpg', TRUE, TRUE, 7, 11),
-  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, '/images/allay/services/service-classic-manicure.jpg', TRUE, TRUE, 7, 12),
-  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, '/images/allay/placeholders/placeholder-service.jpg', TRUE, TRUE, 7, 13)
+  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Signature Glow Facial', 'signature-glow-facial', 'A radiance-focused ritual combining gentle renewal, hydration, and restorative massage.', 60, 20000, NULL, TRUE, TRUE, 7, 1),
+  ((SELECT id FROM service_categories WHERE slug = 'facials'), 'Hydrating Facial', 'hydrating-facial', 'Deep hydration and barrier support for skin that feels calm, soft, and replenished.', 60, 24000, NULL, TRUE, TRUE, 7, 2),
+  ((SELECT id FROM service_categories WHERE slug = 'massage'), 'Deep Tissue Massage', 'deep-tissue-massage', 'Focused therapeutic pressure for persistent tension, tired muscles, and fuller release.', 75, 30000, NULL, TRUE, TRUE, 7, 3),
+  ((SELECT id FROM service_categories WHERE slug = 'sauna'), 'Sauna Session', 'sauna-session', 'A quiet private heat ritual with generous time to settle before and after.', 45, 15000, NULL, TRUE, TRUE, 7, 4),
+  ((SELECT id FROM service_categories WHERE slug = 'headspa'), 'Headspa Ritual', 'headspa-ritual', 'Scalp cleansing, conditioning, steam, and slow massage in one sensory ritual.', 75, 35000, NULL, TRUE, TRUE, 7, 5),
+  ((SELECT id FROM service_categories WHERE slug = 'allay-pilates'), 'Pilates Class', 'pilates-class', 'A considered small-group class for alignment, control, strength, and balance.', 50, 18000, NULL, TRUE, TRUE, 7, 6),
+  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Brow Shaping + Tint', 'brow-shaping-tint', 'Measured shaping and soft tinting designed around your natural features.', 45, 15000, NULL, TRUE, TRUE, 7, 7),
+  ((SELECT id FROM service_categories WHERE slug = 'allay-lash-studio'), 'Lash Lift + Tint', 'lash-lift-tint', 'A low-maintenance lift and tint for softly defined, naturally open lashes.', 60, 22000, NULL, TRUE, TRUE, 7, 8),
+  ((SELECT id FROM service_categories WHERE slug = 'allay-salon'), 'Hair Styling', 'hair-styling', 'Cleanse, condition, protect, and finish with polish, movement, and shine.', 90, 25000, NULL, TRUE, TRUE, 7, 9),
+  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Braiding', 'braiding', 'Protective styling planned with comfort, finish, and longevity in mind.', 240, 45000, NULL, TRUE, TRUE, 7, 10),
+  ((SELECT id FROM service_categories WHERE slug = 'hair-wigs'), 'Premium Human Hair Wig Consultation', 'premium-human-hair-wig-consultation', 'A private consultation for fit, texture, colour, styling, and custom finish.', 45, 10000, NULL, TRUE, TRUE, 7, 11),
+  ((SELECT id FROM service_categories WHERE slug = 'allay-nail-studio'), 'Nail Care Session', 'nail-care-session', 'Detailed nail and cuticle care with a refined, natural finish.', 60, 18000, NULL, TRUE, TRUE, 7, 12),
+  ((SELECT id FROM service_categories WHERE slug = 'body-beauty'), 'Body Scrub / Polish', 'body-scrub-polish', 'A smoothing full-body polish followed by warm hydration and quiet rest.', 60, 28000, NULL, TRUE, TRUE, 7, 13)
 ON CONFLICT (slug) DO UPDATE SET
   category_id = COALESCE(services.category_id, EXCLUDED.category_id),
   image_url = COALESCE(services.image_url, EXCLUDED.image_url),

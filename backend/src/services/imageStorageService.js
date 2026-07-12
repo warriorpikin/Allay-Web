@@ -14,13 +14,15 @@ function slugify(value) {
 export function validateImageFile(file) {
   if (!file) return null
   if (!allowedTypes.has(file.mimetype)) {
-    const error = new Error('Please choose a valid JPG, PNG, or WebP image.')
+    const error = new Error('Unsupported image format. Please choose a JPG, PNG, or WebP image.')
     error.status = 400
+    error.appCode = 'INVALID_FILE_TYPE'
     throw error
   }
   if (!file.buffer?.length) {
-    const error = new Error('The selected image could not be read. Please choose another image.')
+    const error = new Error('No image file was received.')
     error.status = 400
+    error.appCode = 'FILE_REQUIRED'
     throw error
   }
   return file
@@ -30,8 +32,9 @@ export async function uploadImageBuffer(file, { folder, slugPrefix }) {
   validateImageFile(file)
   if (!file) return null
   if (!hasCloudinaryConfig()) {
-    const error = new Error('Image storage is not configured. Add Cloudinary credentials on the backend.')
+    const error = new Error('Cloudinary upload failed because required server credentials are missing.')
     error.status = 503
+    error.appCode = 'UPLOAD_CONFIGURATION_ERROR'
     throw error
   }
 
@@ -48,15 +51,17 @@ export async function uploadImageBuffer(file, { folder, slugPrefix }) {
       },
       (error, result) => {
         if (error) {
-          const uploadError = new Error('The image could not be uploaded. Please try another image.')
+          const uploadError = new Error('Cloudinary rejected the uploaded file.')
           uploadError.status = 502
+          uploadError.appCode = 'UPLOAD_PROVIDER_ERROR'
           uploadError.cause = error
           reject(uploadError)
           return
         }
         if (!result?.secure_url || !result?.public_id) {
-          const uploadError = new Error('The image upload did not return a saved image URL.')
+          const uploadError = new Error('Cloudinary uploaded the image but did not return a saved image URL.')
           uploadError.status = 502
+          uploadError.appCode = 'UPLOAD_PROVIDER_ERROR'
           reject(uploadError)
           return
         }

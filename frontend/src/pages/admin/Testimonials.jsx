@@ -117,18 +117,24 @@ export default function Testimonials() {
     for (const [key, value] of Object.entries({ ...form, rating: Number(form.rating), displayOrder: Number(form.displayOrder) })) payload.append(key, value)
     if (imageFile) payload.append('image', imageFile)
     try {
+      let savedTestimonial = null
       if (editing) {
-        await updateAdminTestimonial(editing.id, payload)
+        const response = await updateAdminTestimonial(editing.id, payload)
+        savedTestimonial = response.testimonial
+        if (savedTestimonial) setTestimonials((current) => current.map((testimonial) => (testimonial.id === savedTestimonial.id ? savedTestimonial : testimonial)))
         toast.success('Testimonial updated.')
       } else {
-        await createAdminTestimonial(payload)
+        const response = await createAdminTestimonial(payload)
+        savedTestimonial = response.testimonial
+        if (savedTestimonial) setTestimonials((current) => [savedTestimonial, ...current])
         toast.success('Testimonial added.')
       }
+      if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
       setFormOpen(false)
       setEditing(null)
       setForm(emptyForm)
       setImageFile(null)
-      setImagePreview('')
+      setImagePreview(savedTestimonial?.profileImageUrl || '')
       refresh()
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not save testimonial.')

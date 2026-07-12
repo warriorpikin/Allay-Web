@@ -1,5 +1,0 @@
-﻿This is a placeholder for allay-logo-light.png.
-Replace this TXT file with the real image named exactly: allay-logo-light.png
-The frontend code references: /images/allay/brand/allay-logo-light.png
-Use PNG format.
-Recommended size: Logo PNG with transparent background..

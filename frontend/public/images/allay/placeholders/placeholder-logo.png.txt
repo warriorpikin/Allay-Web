@@ -1,5 +1,0 @@
-﻿This is a placeholder for placeholder-logo.png.
-Replace this TXT file with the real image named exactly: placeholder-logo.png
-The frontend code references: /images/allay/placeholders/placeholder-logo.png
-Use PNG format.
-Recommended size: Transparent PNG logo fallback.

@@ -1,0 +1,3 @@
+Place the official white Allay House SVG logo in this folder as:
+
+allay-logo-white.svg

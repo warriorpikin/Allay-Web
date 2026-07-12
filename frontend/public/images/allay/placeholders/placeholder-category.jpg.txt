@@ -1,5 +1,0 @@
-﻿This is a placeholder for placeholder-category.jpg.
-Replace this TXT file with the real image named exactly: placeholder-category.jpg
-The frontend code references: /images/allay/placeholders/placeholder-category.jpg
-Use JPG format.
-Recommended size: 1200x900.

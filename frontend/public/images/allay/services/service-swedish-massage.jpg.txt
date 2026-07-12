@@ -1,5 +1,0 @@
-﻿This is a placeholder for service-swedish-massage.jpg.
-Replace this TXT file with the real image named exactly: service-swedish-massage.jpg
-The frontend code references: /images/allay/services/service-swedish-massage.jpg
-Use JPG format.
-Recommended size: 1200x800.

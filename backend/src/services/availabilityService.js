@@ -191,11 +191,93 @@ export async function getAvailableTimeSlots(date, serviceIds = [], durationMinut
     durationMinutes,
   })
 
+  const ids = normalizeServiceIds(serviceIds)
+  const [bookingSettings, blockedPeriods, dailyOverride, allOverrides, bookings, services, serviceBookings] = await Promise.all([
+    getSetting('booking'),
+    getBlockedPeriodsForDate(date),
+    getCapacityOverride(date, null),
+    query('SELECT time_slot, max_bookings FROM booking_capacity_overrides WHERE date = $1', [date]),
+    query(
+      `SELECT id, start_time, end_time
+       FROM bookings
+       WHERE appointment_date = $1
+         AND status = ANY($2)`,
+      [date, ACTIVE_BOOKING_STATUSES],
+    ),
+    getServicesCapacity(ids),
+    ids.length
+      ? query(
+        `SELECT bs.service_id, b.start_time, b.end_time
+         FROM booking_services bs
+         JOIN bookings b ON b.id = bs.booking_id
+         WHERE bs.service_id = ANY($1::uuid[])
+           AND b.appointment_date = $2
+           AND b.status = ANY($3)`,
+        [ids, date, ACTIVE_BOOKING_STATUSES],
+      )
+      : Promise.resolve({ rows: [] }),
+  ])
+  const minimumNoticeMinutes = Math.max(Number(bookingSettings?.value?.minimum_notice_minutes) || 0, 0)
+  const threshold = new Date(Date.now() + minimumNoticeMinutes * 60_000)
+  const dailyLimit = dailyOverride ? Number(dailyOverride.max_bookings) : Number(hours.max_daily_bookings)
+  const timeOverrides = new Map(allOverrides.rows.filter((row) => row.time_slot).map((row) => [normalizeTime(row.time_slot), Number(row.max_bookings)]))
+  const bookingsForDate = bookings.rows
+  const serviceBookingsForDate = serviceBookings.rows
+  const serviceCapacities = new Map(services.map((service) => [service.id, { name: service.name, capacity: Number(service.simultaneous_capacity) }]))
+  const rangesOverlap = (startA, endA, startB, endB) => timeToMinutes(startA) < timeToMinutes(endB) && timeToMinutes(endA) > timeToMinutes(startB)
+
   const checked = []
   for (const time of slots) {
     const endTime = addMinutesToTime(time, durationMinutes)
-    const status = await checkSlotCapacity(date, time, endTime, serviceIds)
-    checked.push({ time, available: status.available, reason: status.reason, message: status.message, remainingCapacity: status.remainingCapacity })
+    const target = new Date(`${date}T${normalizeTime(time)}:00.000Z`)
+    if (!Number.isNaN(target.getTime()) && target.getTime() < threshold.getTime()) {
+      checked.push({
+        time,
+        available: false,
+        reason: 'past',
+        message: minimumNoticeMinutes > 0 ? `Please choose a time at least ${minimumNoticeMinutes} minutes from now.` : 'This time has already passed. Please choose an upcoming time.',
+        remainingCapacity: 0,
+      })
+      continue
+    }
+
+    const blocked = blockedPeriods.find((period) => new Date(period.start_datetime) < new Date(`${date}T${normalizeTime(endTime)}:00.000Z`) && new Date(period.end_datetime) > new Date(`${date}T${normalizeTime(time)}:00.000Z`))
+    if (blocked) {
+      checked.push({ time, available: false, reason: 'blocked', message: 'Allay House is unavailable during this period.', remainingCapacity: 0 })
+      continue
+    }
+
+    if (bookingsForDate.length >= dailyLimit) {
+      checked.push({ time, available: false, reason: 'date_full', message: 'This date is fully booked. Please select another day.', remainingCapacity: 0 })
+      continue
+    }
+
+    const maxSlotBookings = timeOverrides.get(normalizeTime(time)) ?? Number(hours.max_bookings_per_slot)
+    const overlappingBookings = bookingsForDate.filter((booking) => rangesOverlap(time, endTime, booking.start_time, booking.end_time))
+    if (overlappingBookings.length >= maxSlotBookings) {
+      checked.push({ time, available: false, reason: 'time_full', message: 'This time is full.', remainingCapacity: 0 })
+      continue
+    }
+
+    let remainingCapacity = Math.max(maxSlotBookings - overlappingBookings.length, 0)
+    let serviceFull = null
+    for (const serviceId of ids) {
+      const service = serviceCapacities.get(serviceId)
+      if (!service) continue
+      const count = serviceBookingsForDate.filter((booking) => booking.service_id === serviceId && rangesOverlap(time, endTime, booking.start_time, booking.end_time)).length
+      const remainingForService = service.capacity - count
+      remainingCapacity = Math.min(remainingCapacity, Math.max(remainingForService, 0))
+      if (remainingForService <= 0) {
+        serviceFull = service
+        break
+      }
+    }
+    if (serviceFull) {
+      checked.push({ time, available: false, reason: 'service_full', message: `${serviceFull.name} is full at this time.`, remainingCapacity: 0 })
+      continue
+    }
+
+    checked.push({ time, available: true, reason: 'available', message: 'Available', remainingCapacity })
   }
   return checked
 }
@@ -217,20 +299,62 @@ export async function checkAvailability({ date, preferredTime, serviceIds = [], 
 export async function getAvailabilityDays({ month, year, serviceIds = [], durationMinutes = 30 }) {
   const monthIndex = Number(month) - 1
   const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate()
+  const startDate = new Date(Date.UTC(Number(year), monthIndex, 1)).toISOString().slice(0, 10)
+  const endDate = new Date(Date.UTC(Number(year), monthIndex, lastDay)).toISOString().slice(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
   const days = []
+  const [hoursResult, blockedResult, countsResult, dailyOverridesResult] = await Promise.all([
+    query('SELECT * FROM business_hours'),
+    query(
+      `SELECT *
+       FROM blocked_periods
+       WHERE start_datetime < ($2::date + INTERVAL '1 day')
+         AND end_datetime > $1::date
+       ORDER BY start_datetime ASC`,
+      [startDate, endDate],
+    ),
+    query(
+      `SELECT appointment_date::text AS date, COUNT(*)::int AS count
+       FROM bookings
+       WHERE appointment_date BETWEEN $1 AND $2
+         AND status = ANY($3)
+       GROUP BY appointment_date`,
+      [startDate, endDate, ACTIVE_BOOKING_STATUSES],
+    ),
+    query(
+      `SELECT date::text AS date, max_bookings
+       FROM booking_capacity_overrides
+       WHERE date BETWEEN $1 AND $2
+         AND time_slot IS NULL`,
+      [startDate, endDate],
+    ),
+  ])
+  const hoursByDay = new Map(hoursResult.rows.map((row) => [Number(row.day_of_week), row]))
+  const countsByDate = new Map(countsResult.rows.map((row) => [row.date, Number(row.count || 0)]))
+  const overridesByDate = new Map(dailyOverridesResult.rows.map((row) => [row.date, Number(row.max_bookings)]))
+
+  const blockedForDate = (date) => blockedResult.rows.find((period) => {
+    const start = new Date(period.start_datetime).getTime()
+    const end = new Date(period.end_datetime).getTime()
+    const dayStart = new Date(`${date}T00:00:00.000Z`).getTime()
+    const dayEnd = dayStart + 86_400_000
+    return start < dayEnd && end > dayStart
+  })
 
   for (let day = 1; day <= lastDay; day += 1) {
     const date = new Date(Date.UTC(Number(year), monthIndex, day)).toISOString().slice(0, 10)
-    const hours = await getBusinessHoursForDate(date)
-    const blocked = await isDateBlocked(date)
-    const slots = !blocked.blocked && hours?.is_open ? await getAvailableTimeSlots(date, serviceIds, durationMinutes) : []
-    const hasAvailableSlot = slots.some((slot) => slot.available)
+    const hours = hoursByDay.get(dayOfWeek(date))
+    const blockedPeriod = blockedForDate(date)
+    const dailyLimit = overridesByDate.get(date) ?? Number(hours?.max_daily_bookings || 0)
+    const dailyCount = countsByDate.get(date) || 0
+    const isPast = date < today
+    const hasAvailableSlot = Boolean(hours?.is_open && !blockedPeriod && !isPast && dailyCount < dailyLimit)
     days.push({
       date,
-      isAvailable: Boolean(hours?.is_open && !blocked.blocked && hasAvailableSlot),
-      isFullyBooked: Boolean(hours?.is_open && !blocked.blocked && !hasAvailableSlot),
-      isBlocked: blocked.blocked || !hours?.is_open,
-      reason: blocked.blocked ? blocked.period?.reason || blocked.period?.title || 'Blocked' : !hours?.is_open ? 'Closed' : !hasAvailableSlot ? 'Fully booked' : null,
+      isAvailable: hasAvailableSlot,
+      isFullyBooked: Boolean(hours?.is_open && !blockedPeriod && !isPast && !hasAvailableSlot),
+      isBlocked: Boolean(blockedPeriod || !hours?.is_open || isPast),
+      reason: blockedPeriod ? blockedPeriod.reason || blockedPeriod.title || 'Blocked' : !hours?.is_open ? 'Closed' : isPast ? 'Past' : !hasAvailableSlot ? 'Fully booked' : null,
     })
   }
 

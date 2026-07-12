@@ -1,5 +1,0 @@
-﻿This is a placeholder for placeholder-hero.jpg.
-Replace this TXT file with the real image named exactly: placeholder-hero.jpg
-The frontend code references: /images/allay/placeholders/placeholder-hero.jpg
-Use JPG format.
-Recommended size: 1800x1200 or 1600x1000.

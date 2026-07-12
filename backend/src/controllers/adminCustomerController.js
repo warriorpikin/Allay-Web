@@ -8,6 +8,7 @@ const listSchema = z.object({
 })
 
 function mapCustomer(row) {
+  const bookingCount = Number(row.booking_count || 0)
   return {
     id: row.id,
     fullName: row.full_name,
@@ -16,7 +17,8 @@ function mapCustomer(row) {
     status: row.status || 'active',
     createdAt: row.created_at,
     lastLoginAt: row.last_login_at,
-    bookingCount: Number(row.booking_count || 0),
+    hasBooked: bookingCount > 0,
+    bookingCount,
     latestBookingAt: row.latest_booking_at,
     waitlistStatus: row.waitlist_status,
   }
@@ -46,11 +48,12 @@ export async function listAdminCustomers(req, res, next) {
          LEFT JOIN waitlist_entries w ON LOWER(w.email) = LOWER(c.email)
          ${where}
          GROUP BY c.id
+         HAVING COUNT(DISTINCT b.id) > 0
          ORDER BY c.created_at DESC
          LIMIT $${search ? 2 : 1} OFFSET $${search ? 3 : 2}`,
         params,
       ),
-      query(`SELECT COUNT(*)::int AS total FROM customers c ${where}`, countParams),
+      query(`SELECT COUNT(DISTINCT c.id)::int AS total FROM customers c JOIN bookings b ON b.customer_id = c.id ${where}`, countParams),
     ])
 
     return res.json({
@@ -73,7 +76,8 @@ export async function getAdminCustomer(req, res, next) {
        LEFT JOIN bookings b ON b.customer_id = c.id
        LEFT JOIN waitlist_entries w ON LOWER(w.email) = LOWER(c.email)
        WHERE c.id = $1
-       GROUP BY c.id`,
+       GROUP BY c.id
+       HAVING COUNT(DISTINCT b.id) > 0`,
       [req.params.id],
     )
     if (!result.rows[0]) return res.status(404).json({ message: 'Customer not found.' })

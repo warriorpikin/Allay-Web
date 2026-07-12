@@ -1,5 +1,0 @@
-﻿This is a placeholder for category-pilates.jpg.
-Replace this TXT file with the real image named exactly: category-pilates.jpg
-The frontend code references: /images/allay/categories/category-pilates.jpg
-Use JPG format.
-Recommended size: 1200x900.
