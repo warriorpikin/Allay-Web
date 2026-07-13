@@ -44,6 +44,24 @@ function reportStateLabel(status) {
   return 'Configured, not checked'
 }
 
+function credentialModeLabel(mode) {
+  if (mode === 'service_account_base64') return 'Service-account JSON'
+  if (mode === 'email_private_key') return 'Email and private key'
+  if (mode === 'application_default') return 'Application default'
+  return 'Not configured'
+}
+
+function serviceAccountLabel(status) {
+  if (status?.credentialMode === 'application_default') return 'Application default'
+  return status?.serviceAccountEmail || status?.serviceAccountEmailMasked || 'Not available'
+}
+
+function privateKeyLabel(status) {
+  if (status?.credentialMode === 'application_default') return 'Application default'
+  if (!status?.privateKeyConfigured) return 'Not loaded'
+  return status.privateKeyHasPemBoundaries ? 'Loaded with PEM boundaries' : 'Loaded, invalid PEM shape'
+}
+
 function Comparison({ item, type = 'number' }) {
   if (!item) return <span>-</span>
   const display = type === 'percent' ? formatPercent(item.current * 100) : type === 'duration' ? formatDuration(item.current) : formatNumber(item.current)
@@ -144,10 +162,10 @@ export default function Analytics() {
             </div>}
             <div className="admin-detail-grid analytics-diagnostics-grid">
               <article><span>Report access</span><strong>{reportStateLabel(status)}</strong></article>
-              <article><span>Credential mode</span><strong>{status?.credentialMode || 'not configured'}</strong></article>
+              <article><span>Credential mode</span><strong>{credentialModeLabel(status?.credentialMode)}</strong></article>
               <article><span>Property ID</span><strong>{status?.propertyId || 'Missing'}</strong></article>
-              <article><span>Service account</span><strong>{status?.serviceAccountEmail || 'Application default'}</strong></article>
-              <article><span>Private key</span><strong>{status?.privateKeyConfigured ? status.privateKeyHasPemBoundaries ? 'Loaded with PEM boundaries' : 'Loaded, invalid PEM shape' : 'Not shown'}</strong></article>
+              <article><span>Service account</span><strong>{serviceAccountLabel(status)}</strong></article>
+              <article><span>Private key</span><strong>{privateKeyLabel(status)}</strong></article>
               <article><span>Date range</span><strong>{data?.dateRange?.startDate} to {data?.dateRange?.endDate}</strong></article>
               <article><span>Last attempt</span><strong>{formatDateTime(status?.lastAttemptedAt)}</strong></article>
               <article><span>Last success</span><strong>{formatDateTime(status?.lastSuccessfulAt)}</strong></article>

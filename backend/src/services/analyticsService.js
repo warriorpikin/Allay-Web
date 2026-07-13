@@ -115,10 +115,13 @@ export function normalizeAnalyticsPrivateKey(value = '') {
 }
 
 function keyDiagnostics(privateKey = '') {
+  const raw = String(privateKey || '')
   const normalized = normalizeAnalyticsPrivateKey(privateKey)
   return {
     exists: Boolean(normalized),
     hasPemBoundaries: normalized.includes('-----BEGIN PRIVATE KEY-----') && normalized.includes('-----END PRIVATE KEY-----'),
+    length: normalized.length,
+    escapedNewlinesConverted: raw.includes('\\n') && normalized.includes('\n'),
   }
 }
 
@@ -127,6 +130,12 @@ function maskEmail(email = '') {
   if (!name || !domain) return ''
   const visible = name.length <= 3 ? name.slice(0, 1) : name.slice(0, 3)
   return `${visible}${'*'.repeat(Math.max(3, name.length - visible.length))}@${domain}`
+}
+
+function projectIdFromServiceAccountEmail(email = '') {
+  const domain = String(email || '').split('@')[1] || ''
+  const suffix = '.iam.gserviceaccount.com'
+  return domain.endsWith(suffix) ? domain.slice(0, -suffix.length) : ''
 }
 
 function parseServiceAccountBase64(value) {
@@ -158,16 +167,17 @@ function getCredentials() {
   }
   if (env.GA4_CLIENT_EMAIL && env.GA4_PRIVATE_KEY) {
     const privateKey = normalizeAnalyticsPrivateKey(env.GA4_PRIVATE_KEY)
+    const clientEmail = String(env.GA4_CLIENT_EMAIL || '').trim()
     return {
       credentials: {
-        client_email: env.GA4_CLIENT_EMAIL,
+        client_email: clientEmail,
         private_key: privateKey,
       },
       mode: 'email_private_key',
-      clientEmail: env.GA4_CLIENT_EMAIL,
-      maskedClientEmail: maskEmail(env.GA4_CLIENT_EMAIL),
+      clientEmail,
+      maskedClientEmail: maskEmail(clientEmail),
       privateKey: keyDiagnostics(privateKey),
-      projectId: '',
+      projectId: projectIdFromServiceAccountEmail(clientEmail),
     }
   }
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
@@ -211,8 +221,12 @@ export function getAnalyticsStatus() {
     propertyName: property.propertyName,
     credentialMode: credentials.mode || 'not_configured',
     serviceAccountEmail: credentials.maskedClientEmail,
+    serviceAccountEmailMasked: credentials.maskedClientEmail,
+    projectId: credentials.projectId || '',
     privateKeyConfigured: credentials.privateKey.exists,
     privateKeyHasPemBoundaries: credentials.privateKey.hasPemBoundaries,
+    privateKeyLength: credentials.privateKey.length || 0,
+    privateKeyEscapedNewlinesConverted: Boolean(credentials.privateKey.escapedNewlinesConverted),
     missing,
     gaUrl: property.valid ? `https://analytics.google.com/analytics/web/#/p${property.propertyId}/reports/intelligenthome` : '',
     reportState: reportRuntime.lastError ? 'error' : reportRuntime.lastSuccessfulAt ? 'verified' : 'not_checked',
@@ -287,7 +301,7 @@ function updateRuntimeFromSections(sections = {}) {
   const now = new Date().toISOString()
   reportRuntime.lastAttemptedAt = now
   if (errors.length) {
-    const primary = errors.find((error) => error.code === 'GA4_ACCESS_DENIED') || errors[0]
+    const primary = errors.find((error) => error.code === 'GA4_PERMISSION_DENIED') || errors[0]
     reportRuntime.lastError = {
       code: primary.code,
       message: primary.message,
@@ -308,43 +322,57 @@ function safeGoogleError(error) {
     googleStatusCode: code || null,
     category: 'report_failed',
   }
+  if (text.includes('disabled') || text.includes('has not been used') || text.includes('api has not')) {
+    return {
+      code: 'GA4_API_DISABLED',
+      message: 'The credentials were recognized, but the Google Analytics Data API is disabled for the associated Google Cloud project.',
+      diagnostic: { ...diagnostic, category: 'api_disabled' },
+    }
+  }
+  if (text.includes('property') && (text.includes('not found') || text.includes('not exist'))) {
+    return {
+      code: 'GA4_PROPERTY_NOT_FOUND',
+      message: 'Google Analytics could not find the requested GA4 property for these credentials.',
+      diagnostic: { ...diagnostic, category: 'property_not_found' },
+    }
+  }
   if (code === 7 || code === 403 || text.includes('permission') || text.includes('access')) {
     return {
-      code: 'GA4_ACCESS_DENIED',
-      message: 'Analytics credentials do not have access to this GA4 property.',
+      code: 'GA4_PERMISSION_DENIED',
+      message: 'Google accepted the credentials, but this service account does not have access to this GA4 property.',
       diagnostic: { ...diagnostic, category: 'permission_denied' },
     }
   }
   if (code === 8 || code === 429 || text.includes('quota')) {
     return {
-      code: 'GA4_QUOTA_EXCEEDED',
+      code: 'GA4_RATE_LIMITED',
       message: 'Google Analytics quota was exceeded. Please try again later.',
-      diagnostic: { ...diagnostic, category: 'quota_exceeded' },
+      diagnostic: { ...diagnostic, category: 'rate_limited' },
     }
   }
   if (code === 3 || code === 400 || text.includes('invalid') || text.includes('not found')) {
     return {
-      code: 'GA4_UNSUPPORTED_REPORT',
+      code: 'GA4_REQUEST_FAILED',
       message: 'A Google Analytics report field or property value is not valid for this request.',
       diagnostic: { ...diagnostic, category: 'invalid_request' },
     }
   }
   if (code === 16 || code === 401 || text.includes('unauthenticated')) {
     return {
-      code: 'GA4_AUTH_FAILED',
-      message: 'Google Analytics rejected the service-account credentials.',
+      code: 'GA4_AUTHENTICATION_FAILED',
+      message: 'The service-account credentials could not be authenticated. Check that the email and private key belong to the same service account.',
       diagnostic: { ...diagnostic, category: 'authentication_failed' },
     }
   }
   if (code === 14 || code === 4 || code === 503 || code === 504) {
     return {
-      code: 'GA4_UNAVAILABLE',
+      code: 'GA4_REQUEST_FAILED',
       message: 'Google Analytics is temporarily unavailable.',
       diagnostic: { ...diagnostic, category: 'provider_unavailable' },
     }
   }
   return {
-    code: 'GA4_REPORT_FAILED',
+    code: 'GA4_REQUEST_FAILED',
     message: 'Analytics data could not be loaded right now.',
     diagnostic,
   }
@@ -749,40 +777,123 @@ export async function getAnalyticsOverview(query = {}) {
 
 export async function runAnalyticsDiagnosticReport() {
   const status = getAnalyticsStatus()
-  const diagnostics = {
+  const range = resolveDateRange({ preset: '7d' })
+  const baseDetails = {
     configured: status.configured,
     enabled: status.enabled,
+    credentialMode: status.credentialMode,
     propertyId: status.propertyId,
     propertyName: status.propertyName,
     propertyIdNumeric: status.propertyIdNumeric,
-    credentialMode: status.credentialMode,
-    serviceAccountEmail: status.serviceAccountEmail,
+    projectId: status.projectId,
+    serviceAccountEmailMasked: status.serviceAccountEmailMasked || status.serviceAccountEmail,
     privateKeyConfigured: status.privateKeyConfigured,
     privateKeyHasPemBoundaries: status.privateKeyHasPemBoundaries,
+    privateKeyLength: status.privateKeyLength,
+    privateKeyEscapedNewlinesConverted: status.privateKeyEscapedNewlinesConverted,
     missing: status.missing,
+    requestAttempted: false,
+    lastAttemptAt: null,
+    lastSuccessAt: reportRuntime.lastSuccessfulAt || null,
+    dateRange: { startDate: range.startDate, endDate: range.endDate },
+    rowsReturned: 0,
+    values: {},
   }
   if (!status.configured) {
-    return { success: false, diagnostics, error: { code: 'GA4_NOT_CONFIGURED', message: 'GA4 reporting is not fully configured.' } }
+    const invalidProperty = status.missing.some((item) => item.includes('GA4_PROPERTY_ID must be numeric'))
+    const invalidKey = status.missing.some((item) => item.includes('private key'))
+    const code = invalidProperty ? 'GA4_INVALID_PROPERTY_ID' : invalidKey ? 'GA4_INVALID_PRIVATE_KEY' : 'GA4_NOT_CONFIGURED'
+    return {
+      ok: false,
+      success: false,
+      stage: 'configuration',
+      code,
+      message: code === 'GA4_INVALID_PROPERTY_ID'
+        ? 'GA4_PROPERTY_ID must be a numeric GA4 property ID.'
+        : code === 'GA4_INVALID_PRIVATE_KEY'
+          ? 'GA4 private key is present but does not have valid PEM boundaries.'
+          : 'GA4 reporting is not fully configured.',
+      details: baseDetails,
+    }
   }
 
+  let client
   try {
-    const range = resolveDateRange({ preset: '7d' })
-    const response = await runCoreReport({
-      dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
-      metrics: ['activeUsers'],
+    client = getClient()
+  } catch (error) {
+    const safe = safeGoogleError(error)
+    const now = new Date().toISOString()
+    reportRuntime.lastAttemptedAt = now
+    reportRuntime.lastError = { code: safe.code, message: safe.message, diagnostic: safe.diagnostic || null, at: now }
+    return {
+      ok: false,
+      success: false,
+      stage: 'client_creation',
+      code: safe.code === 'GA4_REQUEST_FAILED' ? 'GA4_AUTHENTICATION_FAILED' : safe.code,
+      message: safe.message,
+      details: { ...baseDetails, lastAttemptAt: now },
+    }
+  }
+
+  if (!client) {
+    return {
+      ok: false,
+      success: false,
+      stage: 'client_creation',
+      code: 'GA4_NOT_CONFIGURED',
+      message: 'GA4 client could not be created because reporting is not configured.',
+      details: baseDetails,
+    }
+  }
+
+  const attemptAt = new Date().toISOString()
+  reportRuntime.lastAttemptedAt = attemptAt
+  try {
+    const [response] = await client.runReport({
+      property: propertyName(),
+      dateRanges: [{ startDate: '7daysAgo', endDate: 'today' }],
+      metrics: [{ name: 'activeUsers' }],
       limit: 1,
     })
-    updateRuntimeFromSections({ diagnostic: { data: response, error: null } })
+    const rowsReturned = response.rowCount || response.rows?.length || 0
+    const activeUsers = metricValue(response.rows?.[0], 0)
+    const code = rowsReturned && activeUsers > 0 ? 'GA4_SUCCESS' : 'GA4_NO_DATA'
+    const successAt = new Date().toISOString()
+    reportRuntime.lastSuccessfulAt = successAt
+    reportRuntime.lastError = null
     return {
+      ok: true,
       success: true,
-      diagnostics,
-      dateRange: { startDate: range.startDate, endDate: range.endDate },
-      activeUsers: metricValue(response.rows?.[0], 0),
-      rowCount: response.rowCount || response.rows?.length || 0,
+      stage: 'response_interpretation',
+      code,
+      message: code === 'GA4_SUCCESS'
+        ? 'GA4 reporting connection succeeded.'
+        : 'GA4 reporting connection succeeded, but no analytics activity was found for the selected period.',
+      details: {
+        ...baseDetails,
+        requestAttempted: true,
+        lastAttemptAt: attemptAt,
+        lastSuccessAt: successAt,
+        rowsReturned,
+        values: { activeUsers },
+      },
     }
   } catch (error) {
     const safe = safeGoogleError(error)
-    updateRuntimeFromSections({ diagnostic: { data: null, error: safe } })
-    return { success: false, diagnostics, error: safe }
+    reportRuntime.lastError = { code: safe.code, message: safe.message, diagnostic: safe.diagnostic || null, at: attemptAt }
+    return {
+      ok: false,
+      success: false,
+      stage: 'google_request',
+      code: safe.code,
+      message: safe.message,
+      details: {
+        ...baseDetails,
+        requestAttempted: true,
+        lastAttemptAt: attemptAt,
+        googleStatusCode: safe.diagnostic?.googleStatusCode || null,
+        googleCategory: safe.diagnostic?.category || null,
+      },
+    }
   }
 }

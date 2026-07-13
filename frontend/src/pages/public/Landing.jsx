@@ -21,8 +21,8 @@ export default function Landing() {
   return <div className="landing-page">
     <header className="landing-header">
       <BrandLogo to="/landing" />
-      <button className="landing-menu" type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle landing navigation" aria-expanded={open}>{open ? <X /> : <Menu />}</button>
-      <nav className={open ? 'landing-nav landing-nav--open' : 'landing-nav'} aria-label="Landing navigation">
+      <button className="landing-menu" type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle landing navigation" aria-controls="landing-navigation" aria-expanded={open}>{open ? <X /> : <Menu />}</button>
+      <nav id="landing-navigation" className={open ? 'landing-nav landing-nav--open' : 'landing-nav'} aria-label="Landing navigation">
         <a href="#experience" onClick={close}>Experience</a>
         <a href="#services" onClick={close}>Services</a>
         <Link to="/waitlist" onClick={close}>Waitlist</Link>
