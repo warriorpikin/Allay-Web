@@ -6,6 +6,7 @@ import ServiceCard from '../../components/common/ServiceCard'
 import { getCategoryImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
 import { serviceCategories } from '../../data/serviceCategories'
+import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getServices } from '../../services/servicesApi'
 
 const icons = [Leaf, Sparkles, Flower2, Scissors, Leaf, Sparkles]
@@ -36,6 +37,8 @@ export default function Services() {
   const selectCategory = (slug) => {
     if (slug === 'all') setSearchParams({})
     else setSearchParams({ category: slug })
+    const category = slug === 'all' ? { name: 'All services' } : serviceCategories.find((item) => item.slug === slug)
+    trackEvent(ANALYTICS_EVENTS.CATEGORY_VIEW, { category_name: category?.name || slug, source_section: 'services_category_showcase' })
     categoryRefs.current.get(slug)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }
 

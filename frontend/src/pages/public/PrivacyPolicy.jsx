@@ -1,6 +1,11 @@
 const updated = 'July 10, 2026'
 
 export default function PrivacyPolicy() {
+  const resetAnalyticsConsent = () => {
+    localStorage.removeItem('allay:analytics-consent')
+    window.dispatchEvent(new Event('allay:analytics-consent-reset'))
+  }
+
   return <section className="legal-page section">
     <span className="eyebrow">Privacy Policy</span>
     <h1>How Allay House handles your information.</h1>
@@ -18,6 +23,9 @@ export default function PrivacyPolicy() {
       <p>Administrator-uploaded service and testimonial images are hosted with Cloudinary. Website data may be stored in PostgreSQL or Neon and served through the project hosting environment. These providers process information only as needed to support the website and services.</p>
       <h2>How We Use Information</h2>
       <p>We use information for booking administration, customer communication, service improvement, security, troubleshooting, legal obligations, and internal reporting. We do not sell personal information.</p>
+      <h2>Analytics Choices</h2>
+      <p>When you accept analytics, Allay House may use Google Analytics 4 to understand aggregate website usage and improve the customer experience. Analytics events avoid names, emails, phone numbers, booking notes, booking references, and other direct customer details. You can reject analytics and still use booking, account, contact, and waitlist features.</p>
+      <button type="button" className="privacy-choice-button" onClick={resetAnalyticsConsent}>Change analytics choice</button>
       <h2>Data Sharing And Retention</h2>
       <p>Information is shared only with service providers, administrators, or where required to operate the website, protect the service, or comply with law. We keep information only as long as reasonably needed for these purposes.</p>
       <h2>Security</h2>

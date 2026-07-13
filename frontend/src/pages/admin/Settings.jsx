@@ -5,25 +5,30 @@ import Loader from '../../components/common/Loader'
 import Input from '../../components/forms/Input'
 import Select from '../../components/forms/Select'
 import Textarea from '../../components/forms/Textarea'
+import { useSiteMode } from '../../hooks/useSiteMode'
 import { getSettings, updateSetting } from '../../services/adminApi'
 
 export default function Settings() {
+  const { applySiteMode } = useSiteMode()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ businessName: '', contactEmail: '', launchMode: 'prelaunch', waitlistEnabled: true, cancellationPolicy: '' })
+  const [savedForm, setSavedForm] = useState(null)
 
   useEffect(() => {
     getSettings()
       .then((data) => {
         const business = data.settings?.find((item) => item.key === 'business')?.value || {}
         const launch = data.settings?.find((item) => item.key === 'launch')?.value || {}
-        setForm({
+        const nextForm = {
           businessName: business.name || 'Allay House',
           contactEmail: business.contactEmail || '',
           launchMode: launch.mode === 'live' ? 'live' : 'prelaunch',
           waitlistEnabled: launch.waitlist_enabled !== false,
           cancellationPolicy: business.cancellationPolicy || '',
-        })
+        }
+        setForm(nextForm)
+        setSavedForm(nextForm)
       })
       .catch(() => toast.error('Could not load current settings.'))
       .finally(() => setLoading(false))
@@ -35,15 +40,30 @@ export default function Settings() {
     event.preventDefault()
     setSaving(true)
     try {
-      await Promise.all([
-        updateSetting('business', {
+      const businessChanged = !savedForm
+        || form.businessName !== savedForm.businessName
+        || form.contactEmail !== savedForm.contactEmail
+        || form.cancellationPolicy !== savedForm.cancellationPolicy
+      const launchChanged = !savedForm
+        || form.launchMode !== savedForm.launchMode
+        || form.waitlistEnabled !== savedForm.waitlistEnabled
+      const updates = []
+      if (businessChanged) {
+        updates.push(updateSetting('business', {
           name: form.businessName,
           ...(form.contactEmail ? { contactEmail: form.contactEmail } : {}),
           cancellationPolicy: form.cancellationPolicy,
-        }),
-        updateSetting('launch', { mode: form.launchMode, waitlist_enabled: form.waitlistEnabled }),
-      ])
-      toast.success(`Settings saved. Site is now in ${form.launchMode === 'live' ? 'live' : 'pre-launch'} mode.`)
+        }))
+      }
+      if (launchChanged) updates.push(updateSetting('launch', { mode: form.launchMode, waitlist_enabled: form.waitlistEnabled }))
+      if (!updates.length) {
+        toast.success('Settings are already up to date.')
+        return
+      }
+      await Promise.all(updates)
+      if (launchChanged) applySiteMode({ mode: form.launchMode, waitlistEnabled: form.waitlistEnabled })
+      setSavedForm(form)
+      toast.success(launchChanged ? `Settings saved. Site is now in ${form.launchMode === 'live' ? 'live' : 'pre-launch'} mode.` : 'Settings saved.')
     } catch {
       toast.error('Could not save settings. Please try again.')
     } finally {

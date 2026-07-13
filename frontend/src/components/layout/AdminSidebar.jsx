@@ -1,10 +1,11 @@
-import { CalendarCheck, Clock, CreditCard, LayoutDashboard, Mail, Settings, Sparkles, Star, UserRound, Users, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, Clock, CreditCard, LayoutDashboard, Mail, Settings, Sparkles, Star, UserRound, Users, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { adminNavigationLinks } from '../../data/navigationLinks'
 import Brand from '../common/Brand'
 
 const iconsByPath = {
   '/allay-admin': LayoutDashboard,
+  '/allay-admin/analytics': BarChart3,
   '/allay-admin/bookings': CalendarCheck,
   '/allay-admin/users': Users,
   '/allay-admin/customers': UserRound,

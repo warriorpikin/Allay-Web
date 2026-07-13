@@ -82,6 +82,31 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 .admin-panel dl > div { display: flex; justify-content: space-between; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--color-border); }
 .admin-panel dt { color: var(--color-text-soft); font-size: 10px; }
 .admin-panel dd { margin: 0; font-size: 11px; text-align: right; }
+.analytics-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.analytics-actions select, .admin-panel header select { min-height: 42px; padding: 0 13px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-cream-glass); color: var(--color-primary); font-size: 11px; }
+.analytics-status { margin-bottom: 20px; }
+.analytics-setup { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); }
+.analytics-setup h3 { margin: 0; color: var(--color-primary); font-family: var(--font-heading); font-size: 26px; font-weight: 500; }
+.analytics-setup div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.analytics-setup span, .analytics-setup small { color: var(--color-text-soft); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.analytics-setup code { display: inline-flex; min-height: 30px; align-items: center; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-surface); color: var(--color-primary); font-size: 11px; }
+.analytics-cards { grid-template-columns: repeat(3, 1fr); }
+.analytics-cards article { min-height: 150px; }
+.analytics-cards small.analytics-change { font-size: 9px; }
+.analytics-change--up { color: var(--color-success); }
+.analytics-change--down { color: var(--color-error); }
+.analytics-change--flat { color: var(--color-text-soft); }
+.analytics-sparkline { height: 260px; display: flex; align-items: end; gap: 5px; padding: 18px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: linear-gradient(180deg, var(--color-cream-glass), var(--color-surface)); }
+.analytics-sparkline span { flex: 1; min-width: 4px; border-radius: var(--radius-pill) var(--radius-pill) 0 0; background: linear-gradient(180deg, var(--color-primary-hover), var(--color-olive)); }
+.analytics-realtime { display: flex; align-items: baseline; gap: 10px; margin: 8px 0 18px; color: var(--color-primary); }
+.analytics-realtime strong { font-family: var(--font-heading); font-size: 48px; font-weight: 500; }
+.analytics-realtime span { color: var(--color-text-soft); font-size: 11px; }
+.analytics-subhead { margin: 18px 0 4px; color: var(--color-primary); font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+.analytics-bars { display: grid; gap: 12px; margin-top: 15px; }
+.analytics-bar > div { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; color: var(--color-text-soft); font-size: 10px; }
+.analytics-bar strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 18px; font-weight: 500; }
+.analytics-bar b { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--color-olive); }
+.admin-empty-row--warning { border-color: rgba(151, 70, 48, 0.26); background: var(--color-mauve-wash); color: var(--color-primary); }
 .admin-settings { max-width: 850px; }
 .admin-toggle-row { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); }
 .admin-toggle-row input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--color-primary); }
@@ -92,6 +117,7 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 
 @media (max-width: 1000px) {
   .admin-cards { grid-template-columns: repeat(2, 1fr); }
+  .analytics-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 760px) {
@@ -113,6 +139,8 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
   .admin-topbar__collapse { display: none; }
   .admin-content { padding-top: 35px; }
   .admin-page-heading { flex-direction: column; }
+  .analytics-actions { justify-content: flex-start; }
+  .analytics-cards { grid-template-columns: 1fr; }
   .admin-filters, .admin-detail-grid { grid-template-columns: 1fr; }
 }
 .admin-panel--wide { margin-bottom: 28px; }

@@ -9,6 +9,7 @@ import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
 import { placeholderServices } from '../../data/placeholderServices'
 import { useSiteMode } from '../../hooks/useSiteMode'
+import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getServices } from '../../services/servicesApi'
 import { joinWaitlist } from '../../services/waitlistApi'
 import { imagePaths } from '../../utils/imagePaths'
@@ -24,6 +25,7 @@ export default function Waitlist() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ email: '', fullName: '', phone: '', note: '' })
+  const [started, setStarted] = useState(false)
 
   useEffect(() => {
     getServices()
@@ -31,11 +33,21 @@ export default function Waitlist() {
       .catch(() => setServices(placeholderServices))
   }, [])
 
-  const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }))
+  const markStarted = () => {
+    if (started) return
+    setStarted(true)
+    trackEvent(ANALYTICS_EVENTS.WAITLIST_START, { source_section: 'waitlist_form' })
+  }
+
+  const update = (field) => (event) => {
+    markStarted()
+    setForm((current) => ({ ...current, [field]: event.target.value }))
+  }
 
   const submit = (event) => {
     event.preventDefault()
     if (!selected.length) { toast.error('Choose at least one service interest.'); return }
+    markStarted()
     setSubmitting(true)
     joinWaitlist({
       email: form.email,
@@ -46,9 +58,11 @@ export default function Waitlist() {
     })
       .then(() => {
         setSubmitted(true)
+        trackEvent(ANALYTICS_EVENTS.GENERATE_LEAD, { lead_type: 'waitlist', service_category: selected[0]?.category, source_section: 'waitlist_form' })
         toast.success('You’ve joined the Allay House waitlist.')
       })
       .catch((error) => {
+        trackEvent(ANALYTICS_EVENTS.WAITLIST_ERROR, { source_section: 'waitlist_form', error_type: error.response?.status === 409 ? 'duplicate_or_conflict' : 'request_failed', result: 'failed' })
         toast.error(error.response?.data?.message || 'We could not add you to the waitlist. Please try again.')
       })
       .finally(() => setSubmitting(false))
@@ -74,7 +88,7 @@ export default function Waitlist() {
             </div>
             <div className="form-group">
               <label>Services of interest</label>
-              <WaitlistServiceSelector services={services} selected={selected} onChange={setSelected} />
+              <WaitlistServiceSelector services={services} selected={selected} onChange={(nextSelected) => { markStarted(); setSelected(nextSelected) }} />
             </div>
             <Textarea id="waitlist-note" name="note" label="Anything you would like us to know? (optional)" value={form.note} onChange={update('note')} />
             <Button type="submit" size="lg" loading={submitting}>Join the private waitlist</Button>

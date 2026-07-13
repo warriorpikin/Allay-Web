@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import AvailabilityNotice from '../../components/booking/AvailabilityNotice'
@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBooking } from '../../hooks/useBooking'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { checkAvailability, getAvailabilityDays, getAvailabilityTimes } from '../../services/availabilityApi'
+import { ANALYTICS_EVENTS, bookingValue, bucketTimeOfDay, serviceParams, trackEvent } from '../../services/analytics'
 import { createBooking, validateDiscountCode } from '../../services/bookingApi'
 import { getServices } from '../../services/servicesApi'
 import { calculateBookingTotal } from '../../utils/calculateBookingTotal'
@@ -68,6 +69,9 @@ export default function Booking() {
   const [loadingDays, setLoadingDays] = useState(false)
   const [loadingTimes, setLoadingTimes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const bookingStarted = useRef(false)
+  const trackedDetailsComplete = useRef(false)
+  const lastTrackedTime = useRef('')
   const requestedService = useMemo(() => services.find((service) => service.slug === requestedSlug), [services, requestedSlug])
   const totals = useMemo(() => calculateBookingTotal(booking.services, coupon.applied?.discountAmount || 0), [booking.services, coupon.applied])
   const availableTimeSlots = useMemo(() => timeSlots.filter((slot) => slot.available), [timeSlots])
@@ -149,12 +153,19 @@ export default function Booking() {
   const updateCustomer = (field) => (event) => updateBooking({ customer: { ...booking.customer, [field]: event.target.value } })
   const selectDate = (date) => {
     updateBooking({ date })
+    trackEvent(ANALYTICS_EVENTS.BOOKING_DATE_SELECTED, { booking_step: 'date', result: 'selected' })
+    trackEvent(ANALYTICS_EVENTS.BOOKING_STEP_VIEW, { booking_step: 'time' })
     setNotice(null)
     setSuggestions([])
   }
 
   const selectTime = useCallback(async (time) => {
     updateBooking({ time })
+    if (lastTrackedTime.current !== time) {
+      lastTrackedTime.current = time
+      trackEvent(ANALYTICS_EVENTS.BOOKING_TIME_SELECTED, { booking_step: 'time', time_bucket: bucketTimeOfDay(time), result: 'selected' })
+      trackEvent(ANALYTICS_EVENTS.BOOKING_STEP_VIEW, { booking_step: 'details' })
+    }
     setSuggestions([])
     if (!booking.date) {
       setNotice({ status: 'pending', message: 'Choose a date to check whether this time is available.' })
@@ -200,13 +211,34 @@ export default function Booking() {
 
   const updateSelectedServices = (nextServices) => {
     updateBooking({ services: uniqueServices(nextServices), date: '', time: '' })
+    lastTrackedTime.current = ''
+    if (nextServices.length && !bookingStarted.current) {
+      bookingStarted.current = true
+      trackEvent(ANALYTICS_EVENTS.BOOKING_START, { booking_step: 'services', currency: 'NGN', value: bookingValue(nextServices) })
+      trackEvent(ANALYTICS_EVENTS.BOOKING_STEP_VIEW, { booking_step: 'services' })
+    }
     removeCoupon()
   }
+
+  useEffect(() => {
+    if (!booking.services.length || bookingStarted.current) return
+    bookingStarted.current = true
+    trackEvent(ANALYTICS_EVENTS.BOOKING_START, { booking_step: 'services', currency: 'NGN', value: bookingValue(booking.services) })
+    trackEvent(ANALYTICS_EVENTS.BOOKING_STEP_VIEW, { booking_step: 'services' })
+  }, [booking.services])
+
+  useEffect(() => {
+    if (trackedDetailsComplete.current) return
+    if (!booking.customer.fullName || !booking.customer.email || !booking.customer.phone) return
+    trackedDetailsComplete.current = true
+    trackEvent(ANALYTICS_EVENTS.BOOKING_DETAILS_COMPLETED, { booking_step: 'details', result: 'completed' })
+  }, [booking.customer.fullName, booking.customer.email, booking.customer.phone])
 
   const submit = (event) => {
     event.preventDefault()
     if (!booking.services.length) { toast.error('Choose at least one service.'); return }
     if (!booking.date || !booking.time) { toast.error('Choose a preferred date and time.'); return }
+    trackEvent(ANALYTICS_EVENTS.BOOKING_SUBMIT, { booking_step: 'submit', currency: 'NGN', value: totals.total })
     setSubmitting(true)
     createBooking({
       customerName: booking.customer.fullName,
@@ -221,6 +253,7 @@ export default function Booking() {
       .then((data) => {
         const confirmation = data.confirmation || { reference: data.bookingReference || generateBookingReference(), services: booking.services, date: booking.date, time: booking.time, customer: booking.customer, emailSent: data.emailStatus?.customer }
         sessionStorage.setItem('allay:lastBookingConfirmation', JSON.stringify(confirmation))
+        trackEvent(ANALYTICS_EVENTS.BOOKING_COMPLETE, serviceParams(booking.services[0] || {}, { booking_step: 'complete', currency: 'NGN', value: totals.total, result: 'success' }))
         toast.success(confirmation.emailSent ? 'Your booking is confirmed and the email is on its way.' : 'Your booking is confirmed. Please save your reference.')
         navigate('/booking-success', { state: { confirmation } })
       })
@@ -229,8 +262,10 @@ export default function Booking() {
         if (error.response?.status === 409) {
           setSuggestions(data?.suggestedTimes || [])
           setNotice({ status: 'suggestions', message: data?.message || 'This period has already been booked. Please choose one of the available times below.', suggestions: data?.suggestedTimes || [] })
+          trackEvent(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'availability_conflict', result: 'failed' })
           toast.error('That time is unavailable.')
         } else {
+          trackEvent(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'request_failed', result: 'failed' })
           toast.error('We could not create the booking yet. Please check the backend connection.')
         }
       })

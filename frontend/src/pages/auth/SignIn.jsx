@@ -5,6 +5,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import Input from '../../components/forms/Input'
 import { useAuth } from '../../hooks/useAuth'
+import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getRedirectPath } from '../../utils/getRedirectPath'
 
 export default function SignIn() {
@@ -24,6 +25,7 @@ export default function SignIn() {
     setSubmitting(true)
     try {
       await login(form)
+      trackEvent(ANALYTICS_EVENTS.LOGIN, { method: 'email' })
       toast.success('Welcome back to Allay House.')
       navigate(redirect, { replace: true })
     } catch {

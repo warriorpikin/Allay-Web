@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/cloudinary.js && node --check src/controllers/adminAuthController.js && node --check src/controllers/availabilityController.js && node --check src/controllers/bookingController.js && node --check src/controllers/discountController.js && node --check src/controllers/adminAvailabilityController.js && node --check src/controllers/adminBookingController.js && node --check src/controllers/adminCustomerController.js && node --check src/controllers/customerAuthController.js && node --check src/controllers/serviceController.js && node --check src/controllers/testimonialController.js && node --check src/middleware/imageUpload.js && node --check src/routes/adminCustomerRoutes.js && node --check src/routes/customerAuthRoutes.js && node --check src/routes/discountRoutes.js && node --check src/services/availabilityService.js && node --check src/services/bookingService.js && node --check src/services/discountService.js && node --check src/services/imageStorageService.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/config/cloudinary.js && node --check src/controllers/adminAuthController.js && node --check src/controllers/adminAnalyticsController.js && node --check src/controllers/availabilityController.js && node --check src/controllers/bookingController.js && node --check src/controllers/discountController.js && node --check src/controllers/adminAvailabilityController.js && node --check src/controllers/adminBookingController.js && node --check src/controllers/adminCustomerController.js && node --check src/controllers/customerAuthController.js && node --check src/controllers/serviceController.js && node --check src/controllers/testimonialController.js && node --check src/middleware/imageUpload.js && node --check src/routes/adminAnalyticsRoutes.js && node --check src/routes/adminCustomerRoutes.js && node --check src/routes/customerAuthRoutes.js && node --check src/routes/discountRoutes.js && node --check src/services/analyticsService.js && node --check src/services/availabilityService.js && node --check src/services/bookingService.js && node --check src/services/discountService.js && node --check src/services/imageStorageService.js",
+    "test": "node --test src/tests/*.test.js",
     "db:migrate": "node src/scripts/migrate.js",
     "db:seed": "node src/scripts/seed.js",
     "admin:create": "node src/scripts/createAdmin.js"
   },
   "dependencies": {
+    "@google-analytics/data": "^5.2.2",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",

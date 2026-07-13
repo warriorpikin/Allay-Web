@@ -8,6 +8,7 @@ import { query } from './config/database.js'
 import { errorHandler, notFound } from './middleware/errorHandler.js'
 import adminAuthRoutes from './routes/adminAuthRoutes.js'
 import adminAvailabilityRoutes from './routes/adminAvailabilityRoutes.js'
+import adminAnalyticsRoutes from './routes/adminAnalyticsRoutes.js'
 import adminBookingRoutes from './routes/adminBookingRoutes.js'
 import adminCustomerRoutes from './routes/adminCustomerRoutes.js'
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
@@ -62,6 +63,7 @@ app.get('/api/health', async (req, res, next) => {
 
 app.use('/api/admin/auth', adminAuthRoutes)
 app.use('/api/admin/availability', adminAvailabilityRoutes)
+app.use('/api/admin/analytics', adminAnalyticsRoutes)
 app.use('/api/admin/bookings', adminBookingRoutes)
 app.use('/api/admin/customers', adminCustomerRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)

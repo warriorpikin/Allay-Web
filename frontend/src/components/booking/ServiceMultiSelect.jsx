@@ -1,6 +1,7 @@
 import { Check, Clock3 } from 'lucide-react'
 import ImagePlaceholder from '../common/ImagePlaceholder'
 import { getServiceImage } from '../../data/allayImages'
+import { ANALYTICS_EVENTS, serviceParams, trackEvent } from '../../services/analytics'
 import { formatPriceLabel } from '../../utils/formatCurrency'
 
 function serviceKey(service) {
@@ -11,6 +12,7 @@ export default function ServiceMultiSelect({ services, selectedServices, onChang
   const toggle = (service) => {
     const key = serviceKey(service)
     const selected = selectedServices.some((item) => serviceKey(item) === key)
+    if (!selected) trackEvent(ANALYTICS_EVENTS.SELECT_SERVICE, serviceParams(service, { source_section: 'booking_service_selector' }))
     onChange(selected ? selectedServices.filter((item) => serviceKey(item) !== key) : [...selectedServices, service])
   }
 

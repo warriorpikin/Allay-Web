@@ -11,7 +11,28 @@ function normalizeTestimonial(testimonial = {}) {
   return { ...testimonial, imageUrl, profileImageUrl: imageUrl }
 }
 
+const analyticsOverviewCache = new Map()
+const analyticsOverviewInflight = new Map()
+const analyticsOverviewTtlMs = 5000
+
+function analyticsKey(params = {}) {
+  return JSON.stringify({ ...params, force: undefined })
+}
+
 export const loginAdmin = (data) => api.post('/admin/auth/login', data).then((response) => response.data)
+export const getAdminAnalyticsOverview = (params = {}) => {
+  const key = analyticsKey(params)
+  const force = params.force === true || params.force === 'true'
+  const cached = analyticsOverviewCache.get(key)
+  if (!force && cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.data)
+  if (!force && analyticsOverviewInflight.has(key)) return analyticsOverviewInflight.get(key)
+  const request = api.get('/admin/analytics/overview', { params }).then(({ data }) => {
+    analyticsOverviewCache.set(key, { data, expiresAt: Date.now() + analyticsOverviewTtlMs })
+    return data
+  }).finally(() => analyticsOverviewInflight.delete(key))
+  analyticsOverviewInflight.set(key, request)
+  return request
+}
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
 export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
 export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ data }) => data)

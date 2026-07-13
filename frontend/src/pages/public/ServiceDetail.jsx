@@ -6,6 +6,7 @@ import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import { getServiceImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
+import { ANALYTICS_EVENTS, serviceParams, trackEvent } from '../../services/analytics'
 import { getServiceBySlug } from '../../services/servicesApi'
 import { formatPriceLabel } from '../../utils/formatCurrency'
 import NotFound from './NotFound'
@@ -29,10 +30,16 @@ export default function ServiceDetail() {
       .finally(() => setLoading(false))
   }, [slug])
 
+  useEffect(() => {
+    if (!service || loading) return
+    trackEvent(ANALYTICS_EVENTS.VIEW_SERVICE, serviceParams(service, { source_section: 'service_detail' }))
+  }, [service, loading])
+
   if (loading && !service) return <Loader label="Opening service details" />
   if (missing || !service) return <NotFound />
 
   const image = service.imageUrl || service.image || getServiceImage(service.slug)
+  const trackSelect = () => trackEvent(ANALYTICS_EVENTS.SELECT_SERVICE, serviceParams(service, { source_section: 'service_detail' }))
 
   return <section className="service-detail section">
     <div className="service-detail__image">
@@ -44,7 +51,7 @@ export default function ServiceDetail() {
       <h1>{service.name}</h1>
       <p>{service.description}</p>
       <div className="service-detail__meta"><span><Clock3 size={17} />{service.durationMinutes} minutes</span><strong>{formatPriceLabel(service.price)}</strong></div>
-      <Button to={`/book?service=${service.slug}`}>Choose this treatment</Button>
+      <Button to={`/book?service=${service.slug}`} onClick={trackSelect}>Choose this treatment</Button>
     </div>
   </section>
 }

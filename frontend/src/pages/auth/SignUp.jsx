@@ -5,6 +5,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import Input from '../../components/forms/Input'
 import { useAuth } from '../../hooks/useAuth'
+import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getRedirectPath } from '../../utils/getRedirectPath'
 
 export default function SignUp() {
@@ -31,6 +32,7 @@ export default function SignUp() {
     setSubmitting(true)
     try {
       await signup(form)
+      trackEvent(ANALYTICS_EVENTS.SIGN_UP, { method: 'email' })
       toast.success('Your Allay House account is ready.')
       navigate(redirect, { replace: true })
     } catch {

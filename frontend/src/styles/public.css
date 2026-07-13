@@ -185,6 +185,12 @@
 .legal-page__content h2 { margin: 26px 0 8px; color: var(--color-primary); font-size: clamp(26px, 3vw, 34px); }
 .legal-page__content h2:first-child { margin-top: 0; }
 .legal-page__content p { margin: 0; color: var(--color-text-soft); font-size: 14px; line-height: 1.8; }
+.privacy-choice-button { margin-top: 14px; min-height: 42px; padding: 0 18px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); background: var(--color-cream-glass); color: var(--color-primary); font-size: 11px; font-weight: 600; cursor: pointer; transition: border-color var(--transition), background var(--transition); }
+.privacy-choice-button:hover { border-color: var(--color-primary-hover); background: var(--color-sage-wash); }
+.analytics-consent { position: fixed; z-index: 80; right: clamp(14px, 3vw, 34px); bottom: clamp(14px, 3vw, 34px); width: min(520px, calc(100vw - 28px)); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 20px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.analytics-consent p { margin: 5px 0 8px; color: var(--color-text-soft); font-size: 12px; line-height: 1.6; }
+.analytics-consent a { color: var(--color-primary); font-size: 11px; font-weight: 600; }
+.analytics-consent__actions { display: flex; flex-direction: column; gap: 8px; }
 .footer__legal a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 
 .home-hero { min-height: calc(100vh - 92px); display: grid; grid-template-columns: minmax(0, 0.88fr) minmax(420px, 0.78fr); align-items: center; gap: clamp(45px, 7vw, 110px); padding: clamp(58px, 7vw, 96px) clamp(24px, 7vw, 112px); overflow: clip; background: linear-gradient(120deg, var(--color-background), var(--color-cream)); }
@@ -428,6 +434,8 @@
   .waitlist-invitation, .waitlist-success { margin-top: 70px; border-radius: var(--radius-lg); }
   .waitlist-benefits { grid-template-columns: 1fr; }
   .waitlist-invitation__actions { flex-direction: column; }
+  .analytics-consent { grid-template-columns: 1fr; }
+  .analytics-consent__actions { flex-direction: row; flex-wrap: wrap; }
   .auth-page__header > a:last-child { font-size: 0; }
   .auth-page__header > a:last-child::after { content: 'Home'; font-size: 10px; }
   .auth-card { border-radius: var(--radius-lg); }

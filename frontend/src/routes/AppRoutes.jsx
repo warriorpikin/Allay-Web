@@ -3,6 +3,7 @@ import AdminLayout from '../components/layout/AdminLayout'
 import PublicLayout from '../components/layout/PublicLayout'
 import AuthLayout from '../components/layout/AuthLayout'
 import AdminLogin from '../pages/admin/AdminLogin'
+import Analytics from '../pages/admin/Analytics'
 import Availability from '../pages/admin/Availability'
 import BookingDetails from '../pages/admin/BookingDetails'
 import Bookings from '../pages/admin/Bookings'
@@ -55,6 +56,7 @@ export default function AppRoutes() {
     <Route element={<ProtectedRoute />}>
       <Route path="allay-admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="bookings/:id" element={<BookingDetails />} />
         <Route path="users" element={<Users />} />
