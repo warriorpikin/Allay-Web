@@ -33,6 +33,17 @@ function SectionError({ error }) {
   return <div className="admin-empty-row admin-empty-row--warning">{error.message || 'This analytics section could not be loaded.'}</div>
 }
 
+function formatDateTime(value) {
+  return value ? new Date(value).toLocaleString('en-NG') : 'Not yet'
+}
+
+function reportStateLabel(status) {
+  if (!status?.configured) return 'Not configured'
+  if (status.reportState === 'verified') return 'Report access verified'
+  if (status.reportState === 'error') return 'Report access failed'
+  return 'Configured, not checked'
+}
+
 function Comparison({ item, type = 'number' }) {
   if (!item) return <span>-</span>
   const display = type === 'percent' ? formatPercent(item.current * 100) : type === 'duration' ? formatDuration(item.current) : formatNumber(item.current)
@@ -86,6 +97,7 @@ export default function Analytics() {
   const status = data?.status
   const overview = sections.overview?.data || {}
   const disconnected = data && !status?.configured
+  const reportError = status?.lastError
 
   const topPages = sections.topPages?.data || []
   const landingPages = sections.landingPages?.data || []
@@ -124,7 +136,23 @@ export default function Analytics() {
       <header><div><h2>Connection status</h2><p>Last updated {data?.lastUpdated ? new Date(data.lastUpdated).toLocaleString('en-NG') : 'not yet'}.</p></div></header>
       {disconnected
         ? <div className="analytics-setup"><h3>GA4 reporting is not connected yet.</h3><p>Add these variables in the hosting environments, then rebuild the frontend and restart the backend.</p><div><span>Frontend</span><code>VITE_GA4_MEASUREMENT_ID</code></div><div><span>Backend</span><code>GA4_PROPERTY_ID</code><code>GA4_SERVICE_ACCOUNT_BASE64</code><small>or</small><code>GA4_CLIENT_EMAIL</code><code>GA4_PRIVATE_KEY</code></div></div>
-        : <div className="admin-detail-grid"><article><span>Status</span><strong>{status?.configured ? 'Connected' : 'Disconnected'}</strong></article><article><span>Credential mode</span><strong>{status?.credentialMode || 'not configured'}</strong></article><article><span>Date range</span><strong>{data?.dateRange?.startDate} to {data?.dateRange?.endDate}</strong></article></div>}
+        : <>
+            {reportError && <div className="admin-empty-row admin-empty-row--warning analytics-diagnostic">
+              <strong>{reportError.message}</strong>
+              <span>Category: {reportError.diagnostic?.category || reportError.code}. Google status: {reportError.diagnostic?.googleStatusCode || 'not provided'}.</span>
+              <span>Make sure the displayed service-account email has Viewer access to the displayed GA4 property in Google Analytics Property Access Management.</span>
+            </div>}
+            <div className="admin-detail-grid analytics-diagnostics-grid">
+              <article><span>Report access</span><strong>{reportStateLabel(status)}</strong></article>
+              <article><span>Credential mode</span><strong>{status?.credentialMode || 'not configured'}</strong></article>
+              <article><span>Property ID</span><strong>{status?.propertyId || 'Missing'}</strong></article>
+              <article><span>Service account</span><strong>{status?.serviceAccountEmail || 'Application default'}</strong></article>
+              <article><span>Private key</span><strong>{status?.privateKeyConfigured ? status.privateKeyHasPemBoundaries ? 'Loaded with PEM boundaries' : 'Loaded, invalid PEM shape' : 'Not shown'}</strong></article>
+              <article><span>Date range</span><strong>{data?.dateRange?.startDate} to {data?.dateRange?.endDate}</strong></article>
+              <article><span>Last attempt</span><strong>{formatDateTime(status?.lastAttemptedAt)}</strong></article>
+              <article><span>Last success</span><strong>{formatDateTime(status?.lastSuccessfulAt)}</strong></article>
+            </div>
+          </>}
     </section>
 
     {!disconnected && <div className="admin-cards analytics-cards">

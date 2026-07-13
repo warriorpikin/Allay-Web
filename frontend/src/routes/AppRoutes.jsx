@@ -23,6 +23,7 @@ import Booking from '../pages/public/Booking'
 import BookingSuccess from '../pages/public/BookingSuccess'
 import Contact from '../pages/public/Contact'
 import Home from '../pages/public/Home'
+import Landing from '../pages/public/Landing'
 import NotFound from '../pages/public/NotFound'
 import PrivacyPolicy from '../pages/public/PrivacyPolicy'
 import ServiceDetail from '../pages/public/ServiceDetail'
@@ -46,6 +47,7 @@ export default function AppRoutes() {
       <Route path="*" element={<NotFound />} />
     </Route>
 
+    <Route path="landing" element={<Landing />} />
     <Route path="waitlist" element={<Waitlist />} />
     <Route path="join-allay" element={<Navigate to="/waitlist" replace />} />
     <Route path="auth" element={<AuthLayout />}>

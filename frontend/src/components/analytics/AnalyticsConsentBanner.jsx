@@ -21,15 +21,15 @@ export default function AnalyticsConsentBanner() {
     if (nextChoice === 'granted') trackPageView({ pathname, title: document.title })
   }
 
-  return <section className="analytics-consent" aria-label="Analytics preferences">
+  return <section className="analytics-consent" aria-label="Cookie preferences">
     <div>
-      <span className="eyebrow">Privacy choice</span>
-      <p>Allay House uses analytics to understand website usage and improve the customer experience. Booking and waitlist features work either way.</p>
+      <span className="eyebrow">Cookie choice</span>
+      <p>We use essential cookies to keep the website working and optional analytics cookies to understand how visitors use Allay House. You can accept or reject optional cookies.</p>
       <Link to="/privacy-policy">Privacy details</Link>
     </div>
     <div className="analytics-consent__actions">
-      <Button type="button" size="sm" onClick={() => choose('granted')}>Accept Analytics</Button>
-      <Button type="button" variant="outline" size="sm" onClick={() => choose('denied')}>Reject Analytics</Button>
+      <Button type="button" size="sm" onClick={() => choose('granted')}>Accept all</Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => choose('denied')}>Reject optional</Button>
     </div>
   </section>
 }

@@ -107,6 +107,12 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 .analytics-bar strong { color: var(--color-primary); font-family: var(--font-heading); font-size: 18px; font-weight: 500; }
 .analytics-bar b { display: block; height: 8px; border-radius: var(--radius-pill); background: var(--color-olive); }
 .admin-empty-row--warning { border-color: rgba(151, 70, 48, 0.26); background: var(--color-mauve-wash); color: var(--color-primary); }
+.analytics-diagnostic { min-height: auto; justify-items: start; gap: 6px; margin-bottom: 16px; padding: 16px; border: 1px solid rgba(151, 70, 48, 0.26); border-radius: var(--radius-md); line-height: 1.55; }
+.analytics-diagnostic strong { font-size: 13px; }
+.analytics-diagnostic span { color: var(--color-text-soft); font-size: 10px; }
+.analytics-diagnostics-grid article { min-width: 0; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); }
+.analytics-diagnostics-grid span { display: block; margin-bottom: 7px; color: var(--color-text-soft); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; }
+.analytics-diagnostics-grid strong { display: block; color: var(--color-primary); font-family: var(--font-heading); font-size: 22px; font-weight: 500; line-height: 1.1; overflow-wrap: anywhere; }
 .admin-settings { max-width: 850px; }
 .admin-toggle-row { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-cream-glass); }
 .admin-toggle-row input { width: 18px; height: 18px; margin-top: 3px; accent-color: var(--color-primary); }

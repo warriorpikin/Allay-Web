@@ -84,7 +84,7 @@ export const imagePaths = {
   },
   placeholders: {
     hero: '/images/allay-house-hero.png',
-    category: '/images/allay/categories/all-services.png',
+    category: '/images/allay/categories/all-services.jpg',
     service: '',
     avatar: '',
     empty: '',

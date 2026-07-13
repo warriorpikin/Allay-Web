@@ -23,9 +23,9 @@ export default function PrivacyPolicy() {
       <p>Administrator-uploaded service and testimonial images are hosted with Cloudinary. Website data may be stored in PostgreSQL or Neon and served through the project hosting environment. These providers process information only as needed to support the website and services.</p>
       <h2>How We Use Information</h2>
       <p>We use information for booking administration, customer communication, service improvement, security, troubleshooting, legal obligations, and internal reporting. We do not sell personal information.</p>
-      <h2>Analytics Choices</h2>
-      <p>When you accept analytics, Allay House may use Google Analytics 4 to understand aggregate website usage and improve the customer experience. Analytics events avoid names, emails, phone numbers, booking notes, booking references, and other direct customer details. You can reject analytics and still use booking, account, contact, and waitlist features.</p>
-      <button type="button" className="privacy-choice-button" onClick={resetAnalyticsConsent}>Change analytics choice</button>
+      <h2>Cookie And Analytics Choices</h2>
+      <p>Essential cookies keep the website working. If you accept optional cookies, Allay House may use Google Analytics 4 to understand aggregate website usage and improve the customer experience. Analytics events avoid names, emails, phone numbers, booking notes, booking references, and other direct customer details. You can reject optional cookies and still use booking, account, contact, and waitlist features.</p>
+      <button type="button" className="privacy-choice-button" onClick={resetAnalyticsConsent}>Change cookie choice</button>
       <h2>Data Sharing And Retention</h2>
       <p>Information is shared only with service providers, administrators, or where required to operate the website, protect the service, or comply with law. We keep information only as long as reasonably needed for these purposes.</p>
       <h2>Security</h2>

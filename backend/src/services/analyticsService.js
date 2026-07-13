@@ -36,6 +36,11 @@ let analyticsClient
 let metadataCache
 let metadataCacheExpires = 0
 const reportCache = new Map()
+const reportRuntime = {
+  lastAttemptedAt: '',
+  lastSuccessfulAt: '',
+  lastError: null,
+}
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10)
@@ -87,14 +92,51 @@ function compare(current, previous) {
   return { current: currentValue, previous: previousValue, change, changePercent }
 }
 
+export function normalizeAnalyticsPropertyId(value = env.GA4_PROPERTY_ID) {
+  const raw = String(value || '').trim()
+  const match = raw.match(/^(?:properties\/)?(\d+)$/)
+  const propertyId = match?.[1] || ''
+  return {
+    raw,
+    propertyId,
+    propertyName: propertyId ? `properties/${propertyId}` : '',
+    valid: Boolean(propertyId),
+    numeric: /^\d+$/.test(propertyId),
+    message: raw ? 'GA4_PROPERTY_ID must be a numeric property ID, optionally prefixed with properties/.' : 'GA4_PROPERTY_ID is required.',
+  }
+}
+
+export function normalizeAnalyticsPrivateKey(value = '') {
+  let key = String(value || '').trim()
+  const quoted = (key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))
+  if (quoted) key = key.slice(1, -1).trim()
+  key = key.replace(/\\n/g, '\n')
+  return key.trim()
+}
+
+function keyDiagnostics(privateKey = '') {
+  const normalized = normalizeAnalyticsPrivateKey(privateKey)
+  return {
+    exists: Boolean(normalized),
+    hasPemBoundaries: normalized.includes('-----BEGIN PRIVATE KEY-----') && normalized.includes('-----END PRIVATE KEY-----'),
+  }
+}
+
+function maskEmail(email = '') {
+  const [name, domain] = String(email || '').split('@')
+  if (!name || !domain) return ''
+  const visible = name.length <= 3 ? name.slice(0, 1) : name.slice(0, 3)
+  return `${visible}${'*'.repeat(Math.max(3, name.length - visible.length))}@${domain}`
+}
+
 function parseServiceAccountBase64(value) {
   if (!value) return null
   try {
     const parsed = JSON.parse(Buffer.from(value, 'base64').toString('utf8'))
     if (!parsed.client_email || !parsed.private_key) return null
     return {
-      client_email: parsed.client_email,
-      private_key: parsed.private_key,
+      client_email: String(parsed.client_email).trim(),
+      private_key: normalizeAnalyticsPrivateKey(parsed.private_key),
       project_id: parsed.project_id,
     }
   } catch {
@@ -104,38 +146,79 @@ function parseServiceAccountBase64(value) {
 
 function getCredentials() {
   const fromBase64 = parseServiceAccountBase64(env.GA4_SERVICE_ACCOUNT_BASE64)
-  if (fromBase64) return { credentials: fromBase64, mode: 'service_account_base64' }
+  if (fromBase64) {
+    return {
+      credentials: fromBase64,
+      mode: 'service_account_base64',
+      clientEmail: fromBase64.client_email,
+      maskedClientEmail: maskEmail(fromBase64.client_email),
+      privateKey: keyDiagnostics(fromBase64.private_key),
+      projectId: fromBase64.project_id || '',
+    }
+  }
   if (env.GA4_CLIENT_EMAIL && env.GA4_PRIVATE_KEY) {
+    const privateKey = normalizeAnalyticsPrivateKey(env.GA4_PRIVATE_KEY)
     return {
       credentials: {
         client_email: env.GA4_CLIENT_EMAIL,
-        private_key: env.GA4_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: privateKey,
       },
       mode: 'email_private_key',
+      clientEmail: env.GA4_CLIENT_EMAIL,
+      maskedClientEmail: maskEmail(env.GA4_CLIENT_EMAIL),
+      privateKey: keyDiagnostics(privateKey),
+      projectId: '',
     }
   }
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return { credentials: null, mode: 'application_default' }
-  return { credentials: null, mode: '' }
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    return {
+      credentials: null,
+      mode: 'application_default',
+      clientEmail: '',
+      maskedClientEmail: '',
+      privateKey: { exists: false, hasPemBoundaries: false },
+      projectId: '',
+    }
+  }
+  return {
+    credentials: null,
+    mode: '',
+    clientEmail: '',
+    maskedClientEmail: '',
+    privateKey: { exists: false, hasPemBoundaries: false },
+    projectId: '',
+  }
 }
 
 export function getAnalyticsStatus() {
   const enabled = env.GA4_ANALYTICS_ENABLED !== 'false'
-  const propertyIdValid = /^\d+$/.test(env.GA4_PROPERTY_ID || '')
+  const property = normalizeAnalyticsPropertyId()
   const credentials = getCredentials()
-  const configured = Boolean(enabled && propertyIdValid && credentials.mode)
+  const credentialUsable = credentials.mode === 'application_default' || Boolean(credentials.credentials && credentials.privateKey.hasPemBoundaries)
+  const configured = Boolean(enabled && property.valid && credentials.mode && credentialUsable)
   const missing = []
   if (!env.GA4_PROPERTY_ID) missing.push('GA4_PROPERTY_ID')
-  if (env.GA4_PROPERTY_ID && !propertyIdValid) missing.push('GA4_PROPERTY_ID must contain only digits')
+  if (env.GA4_PROPERTY_ID && !property.valid) missing.push('GA4_PROPERTY_ID must be numeric, for example 123456789 or properties/123456789')
   if (!credentials.mode) missing.push('GA4_SERVICE_ACCOUNT_BASE64 or GA4_CLIENT_EMAIL + GA4_PRIVATE_KEY')
+  if (credentials.credentials && !credentials.privateKey.hasPemBoundaries) missing.push('GA4 private key must include valid PEM boundaries')
   return {
     success: true,
     configured,
     enabled,
-    propertyIdValid,
-    propertyId: propertyIdValid ? env.GA4_PROPERTY_ID : '',
+    propertyIdValid: property.valid,
+    propertyIdNumeric: property.numeric,
+    propertyId: property.propertyId,
+    propertyName: property.propertyName,
     credentialMode: credentials.mode || 'not_configured',
+    serviceAccountEmail: credentials.maskedClientEmail,
+    privateKeyConfigured: credentials.privateKey.exists,
+    privateKeyHasPemBoundaries: credentials.privateKey.hasPemBoundaries,
     missing,
-    gaUrl: propertyIdValid ? `https://analytics.google.com/analytics/web/#/p${env.GA4_PROPERTY_ID}/reports/intelligenthome` : '',
+    gaUrl: property.valid ? `https://analytics.google.com/analytics/web/#/p${property.propertyId}/reports/intelligenthome` : '',
+    reportState: reportRuntime.lastError ? 'error' : reportRuntime.lastSuccessfulAt ? 'verified' : 'not_checked',
+    lastAttemptedAt: reportRuntime.lastAttemptedAt,
+    lastSuccessfulAt: reportRuntime.lastSuccessfulAt,
+    lastError: reportRuntime.lastError,
   }
 }
 
@@ -151,7 +234,7 @@ function getClient() {
 }
 
 function propertyName() {
-  return `properties/${env.GA4_PROPERTY_ID}`
+  return normalizeAnalyticsPropertyId().propertyName
 }
 
 function resolveDateRange(query = {}) {
@@ -185,13 +268,86 @@ function cacheSet(key, value, ttlSeconds) {
   return value
 }
 
+function cacheIdentity() {
+  const property = normalizeAnalyticsPropertyId()
+  const credentials = getCredentials()
+  return [
+    property.propertyId || 'no-property',
+    credentials.mode || 'no-credentials',
+    credentials.clientEmail || credentials.maskedClientEmail || 'application-default',
+  ].join(':')
+}
+
+function collectSectionErrors(sections = {}) {
+  return Object.values(sections).map((section) => section?.error).filter(Boolean)
+}
+
+function updateRuntimeFromSections(sections = {}) {
+  const errors = collectSectionErrors(sections)
+  const now = new Date().toISOString()
+  reportRuntime.lastAttemptedAt = now
+  if (errors.length) {
+    const primary = errors.find((error) => error.code === 'GA4_ACCESS_DENIED') || errors[0]
+    reportRuntime.lastError = {
+      code: primary.code,
+      message: primary.message,
+      diagnostic: primary.diagnostic || null,
+      at: now,
+    }
+    return { ok: false, errors }
+  }
+  reportRuntime.lastSuccessfulAt = now
+  reportRuntime.lastError = null
+  return { ok: true, errors: [] }
+}
+
 function safeGoogleError(error) {
   const code = Number(error?.code || error?.response?.status || 0)
-  if (code === 7) return { code: 'GA4_ACCESS_DENIED', message: 'Analytics credentials do not have access to this GA4 property.' }
-  if (code === 8) return { code: 'GA4_QUOTA_EXCEEDED', message: 'Google Analytics quota was exceeded. Please try again later.' }
-  if (code === 3) return { code: 'GA4_UNSUPPORTED_REPORT', message: 'A Google Analytics report field is not available for this property yet.' }
-  if (code === 14 || code === 4) return { code: 'GA4_UNAVAILABLE', message: 'Google Analytics is temporarily unavailable.' }
-  return { code: 'GA4_REPORT_FAILED', message: 'Analytics data could not be loaded right now.' }
+  const text = `${error?.message || ''} ${error?.details || ''}`.toLowerCase()
+  const diagnostic = {
+    googleStatusCode: code || null,
+    category: 'report_failed',
+  }
+  if (code === 7 || code === 403 || text.includes('permission') || text.includes('access')) {
+    return {
+      code: 'GA4_ACCESS_DENIED',
+      message: 'Analytics credentials do not have access to this GA4 property.',
+      diagnostic: { ...diagnostic, category: 'permission_denied' },
+    }
+  }
+  if (code === 8 || code === 429 || text.includes('quota')) {
+    return {
+      code: 'GA4_QUOTA_EXCEEDED',
+      message: 'Google Analytics quota was exceeded. Please try again later.',
+      diagnostic: { ...diagnostic, category: 'quota_exceeded' },
+    }
+  }
+  if (code === 3 || code === 400 || text.includes('invalid') || text.includes('not found')) {
+    return {
+      code: 'GA4_UNSUPPORTED_REPORT',
+      message: 'A Google Analytics report field or property value is not valid for this request.',
+      diagnostic: { ...diagnostic, category: 'invalid_request' },
+    }
+  }
+  if (code === 16 || code === 401 || text.includes('unauthenticated')) {
+    return {
+      code: 'GA4_AUTH_FAILED',
+      message: 'Google Analytics rejected the service-account credentials.',
+      diagnostic: { ...diagnostic, category: 'authentication_failed' },
+    }
+  }
+  if (code === 14 || code === 4 || code === 503 || code === 504) {
+    return {
+      code: 'GA4_UNAVAILABLE',
+      message: 'Google Analytics is temporarily unavailable.',
+      diagnostic: { ...diagnostic, category: 'provider_unavailable' },
+    }
+  }
+  return {
+    code: 'GA4_REPORT_FAILED',
+    message: 'Analytics data could not be loaded right now.',
+    diagnostic,
+  }
 }
 
 async function runCoreReport({ dimensions = [], metrics = [], dateRanges, orderBys, limit = 25, dimensionFilter }) {
@@ -306,7 +462,8 @@ export async function getAnalyticsOverview(query = {}) {
   }
 
   const forceRefresh = query.force === 'true'
-  const cacheKey = `overview:${range.startDate}:${range.endDate}:${query.limit || 10}`
+  const cacheKey = `overview:${cacheIdentity()}:${range.startDate}:${range.endDate}:${query.limit || 10}`
+  if (forceRefresh) reportCache.delete(cacheKey)
   if (!forceRefresh) {
     const cached = cacheGet(cacheKey)
     if (cached) return cached
@@ -565,24 +722,67 @@ export async function getAnalyticsOverview(query = {}) {
     }
   }, { setupNeeded: true, availableCustomDimensions: [], missingCustomDimensions: CUSTOM_DIMENSIONS, viewed: [], selected: [], bookingStarts: [], bookingCompletions: [], categories: [] })
 
+  const sections = {
+    overview,
+    timeSeries,
+    realtime,
+    topPages,
+    landingPages,
+    acquisition,
+    audience,
+    events,
+    serviceInterest,
+    bookingFunnel,
+    waitlist,
+  }
+  const runtime = updateRuntimeFromSections(sections)
   const result = {
     success: true,
-    status,
+    status: getAnalyticsStatus(),
     dateRange: range,
     lastUpdated: new Date().toISOString(),
-    sections: {
-      overview,
-      timeSeries,
-      realtime,
-      topPages,
-      landingPages,
-      acquisition,
-      audience,
-      events,
-      serviceInterest,
-      bookingFunnel,
-      waitlist,
-    },
+    sections,
   }
+  if (!runtime.ok) return result
   return cacheSet(cacheKey, result, env.GA4_CACHE_TTL_SECONDS)
+}
+
+export async function runAnalyticsDiagnosticReport() {
+  const status = getAnalyticsStatus()
+  const diagnostics = {
+    configured: status.configured,
+    enabled: status.enabled,
+    propertyId: status.propertyId,
+    propertyName: status.propertyName,
+    propertyIdNumeric: status.propertyIdNumeric,
+    credentialMode: status.credentialMode,
+    serviceAccountEmail: status.serviceAccountEmail,
+    privateKeyConfigured: status.privateKeyConfigured,
+    privateKeyHasPemBoundaries: status.privateKeyHasPemBoundaries,
+    missing: status.missing,
+  }
+  if (!status.configured) {
+    return { success: false, diagnostics, error: { code: 'GA4_NOT_CONFIGURED', message: 'GA4 reporting is not fully configured.' } }
+  }
+
+  try {
+    const range = resolveDateRange({ preset: '7d' })
+    const response = await runCoreReport({
+      dateRanges: [{ startDate: range.startDate, endDate: range.endDate }],
+      metrics: ['activeUsers'],
+      limit: 1,
+    })
+    updateRuntimeFromSections({ diagnostic: { data: response, error: null } })
+    return {
+      success: true,
+      diagnostics,
+      dateRange: { startDate: range.startDate, endDate: range.endDate },
+      activeUsers: metricValue(response.rows?.[0], 0),
+      rowCount: response.rowCount || response.rows?.length || 0,
+    }
+  } catch (error) {
+    const safe = safeGoogleError(error)
+    updateRuntimeFromSections({ diagnostic: { data: null, error: safe } })
+    return { success: false, diagnostics, error: safe }
+  }
 }
