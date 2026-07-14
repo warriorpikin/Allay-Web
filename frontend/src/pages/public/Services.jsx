@@ -18,15 +18,18 @@ function normalizeCategory(value = '') {
 export default function Services() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [services, setServices] = useState(placeholderServices)
+  const [loading, setLoading] = useState(true)
   const categoryRefs = useRef(new Map())
   const activeCategory = searchParams.get('category') || 'all'
 
   useEffect(() => {
+    setLoading(true)
     getServices()
       .then((data) => {
         if (data.services?.length) setServices(data.services)
       })
       .catch(() => setServices(placeholderServices))
+      .finally(() => setLoading(false))
   }, [])
 
   const filteredServices = useMemo(() => {
@@ -73,7 +76,9 @@ export default function Services() {
         <strong>{filteredServices.length}</strong> {filteredServices.length === 1 ? 'service' : 'services'} shown
         {activeCategory !== 'all' && <span> under {serviceCategories.find((category) => category.slug === activeCategory)?.name || 'this category'}</span>}
       </div>
-      {filteredServices.length ? <div className="service-grid">{filteredServices.map((service) => <ServiceCard key={service.id} service={service} />)}</div> : <div className="empty-state"><h3>No services are currently available in this category.</h3><p>Please explore another Allay House category.</p></div>}
+      {loading
+        ? <div className="service-grid" aria-label="Loading services">{Array.from({ length: 6 }).map((_, index) => <div className="service-card-skeleton" key={index} aria-hidden="true"><span /><div><i /><b /><em /></div></div>)}</div>
+        : filteredServices.length ? <div className="service-grid">{filteredServices.map((service) => <ServiceCard key={service.id} service={service} />)}</div> : <div className="empty-state"><h3>No services are currently available in this category.</h3><p>Please explore another Allay House category.</p></div>}
     </section>
   </>
 }

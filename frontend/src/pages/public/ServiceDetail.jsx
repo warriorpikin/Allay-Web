@@ -6,6 +6,7 @@ import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import { getServiceImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
+import { useSiteMode } from '../../hooks/useSiteMode'
 import { ANALYTICS_EVENTS, serviceParams, trackEvent } from '../../services/analytics'
 import { getServiceBySlug } from '../../services/servicesApi'
 import { formatPriceLabel } from '../../utils/formatCurrency'
@@ -13,6 +14,7 @@ import NotFound from './NotFound'
 
 export default function ServiceDetail() {
   const { slug } = useParams()
+  const { isLive } = useSiteMode()
   const [service, setService] = useState(() => placeholderServices.find((item) => item.slug === slug) || null)
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
@@ -39,6 +41,7 @@ export default function ServiceDetail() {
   if (missing || !service) return <NotFound />
 
   const image = service.imageUrl || service.image || getServiceImage(service.slug)
+  const selectPath = isLive ? `/book?service=${service.slug}` : `/waitlist?service=${service.slug}`
   const trackSelect = () => trackEvent(ANALYTICS_EVENTS.SELECT_SERVICE, serviceParams(service, { source_section: 'service_detail' }))
 
   return <section className="service-detail section">
@@ -51,7 +54,7 @@ export default function ServiceDetail() {
       <h1>{service.name}</h1>
       <p>{service.description}</p>
       <div className="service-detail__meta"><span><Clock3 size={17} />{service.durationMinutes} minutes</span><strong>{formatPriceLabel(service.price)}</strong></div>
-      <Button to={`/book?service=${service.slug}`} onClick={trackSelect}>Choose this treatment</Button>
+      <Button to={selectPath} onClick={trackSelect}>{isLive ? 'Choose this treatment' : 'Join waitlist for this treatment'}</Button>
     </div>
   </section>
 }

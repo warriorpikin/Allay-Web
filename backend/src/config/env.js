@@ -16,6 +16,13 @@ function cleanEnvString(value) {
 const envString = (validator = z.string()) => z.preprocess(cleanEnvString, validator)
 const optionalEnvString = z.preprocess((value) => cleanEnvString(value) || '', z.string().optional().default(''))
 
+function resolveEmailFrom(data) {
+  if (data.EMAIL_FROM) return data.EMAIL_FROM
+  if (!data.RESEND_FROM_EMAIL) return 'Allay House <hello@allayhouse.com>'
+  if (!data.RESEND_FROM_NAME || data.RESEND_FROM_EMAIL.includes('<')) return data.RESEND_FROM_EMAIL
+  return `${data.RESEND_FROM_NAME} <${data.RESEND_FROM_EMAIL}>`
+}
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -26,6 +33,8 @@ const schema = z.object({
   JWT_EXPIRES_IN: envString().default('8h'),
   RESEND_API_KEY: optionalEnvString,
   RESEND_FROM_EMAIL: optionalEnvString,
+  RESEND_FROM_NAME: optionalEnvString,
+  RESEND_REPLY_TO: optionalEnvString,
   EMAIL_FROM: optionalEnvString,
   ADMIN_EMAIL: optionalEnvString,
   ADMIN_NOTIFICATION_EMAIL: optionalEnvString,
@@ -56,5 +65,5 @@ if (!result.success) {
 
 export const env = {
   ...result.data,
-  EMAIL_FROM: result.data.RESEND_FROM_EMAIL || result.data.EMAIL_FROM || 'Allay House <hello@allayhouse.com>',
+  EMAIL_FROM: resolveEmailFrom(result.data),
 }

@@ -1,4 +1,6 @@
+import crypto from 'node:crypto'
 import { query } from '../config/database.js'
+import { env } from '../config/env.js'
 
 function normalizeCode(code = '') {
   return String(code).trim().toUpperCase()
@@ -6,6 +8,24 @@ function normalizeCode(code = '') {
 
 function toMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100
+}
+
+function normalizeDiscountType(value = '') {
+  return value === 'fixed' ? 'fixed' : 'percentage'
+}
+
+function publicDiscountType(value = '') {
+  return value === 'fixed' ? 'fixed' : 'percent'
+}
+
+function launchCodeSeed(waitlistEntryId, email, attempt = 0) {
+  const hash = crypto
+    .createHash('sha256')
+    .update(`${waitlistEntryId}:${String(email || '').toLowerCase()}:allay-launch:${attempt}`)
+    .digest('hex')
+    .slice(0, 8)
+    .toUpperCase()
+  return `ALLAY-${hash}`
 }
 
 async function getEligibleSubtotal(discountId, services) {
@@ -96,4 +116,47 @@ export async function markDiscountCodeUsed(client, discountId) {
     error.status = 409
     throw error
   }
+}
+
+export async function getOrCreateWaitlistLaunchDiscount({ waitlistEntryId, email }) {
+  const existing = await query(
+    `SELECT code, discount_type, discount_value
+     FROM discount_codes
+     WHERE waitlist_entry_id = $1
+     ORDER BY created_at ASC
+     LIMIT 1`,
+    [waitlistEntryId],
+  )
+  if (existing.rows[0]) {
+    return {
+      code: existing.rows[0].code,
+      discountType: publicDiscountType(existing.rows[0].discount_type),
+      discountValue: Number(existing.rows[0].discount_value),
+    }
+  }
+
+  const discountType = normalizeDiscountType(env.WAITLIST_LAUNCH_DISCOUNT_TYPE)
+  const discountValue = Number(env.WAITLIST_LAUNCH_DISCOUNT_VALUE || 15)
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = launchCodeSeed(waitlistEntryId, email, attempt)
+    const created = await query(
+      `INSERT INTO discount_codes (code, waitlist_entry_id, discount_type, discount_value, usage_limit, is_active)
+       VALUES ($1, $2, $3, $4, 1, TRUE)
+       ON CONFLICT (code) DO NOTHING
+       RETURNING code, discount_type, discount_value`,
+      [code, waitlistEntryId, discountType, discountValue],
+    )
+    if (created.rows[0]) {
+      return {
+        code: created.rows[0].code,
+        discountType: publicDiscountType(created.rows[0].discount_type),
+        discountValue: Number(created.rows[0].discount_value),
+      }
+    }
+  }
+
+  const error = new Error('Could not create a unique waitlist discount code.')
+  error.status = 409
+  throw error
 }

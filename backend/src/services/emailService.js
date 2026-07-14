@@ -1,5 +1,6 @@
 import { query } from '../config/database.js'
 import { env } from '../config/env.js'
+import { getOrCreateWaitlistLaunchDiscount } from './discountService.js'
 
 function escapeHtml(value = '') {
   return String(value)
@@ -40,13 +41,15 @@ async function logEmail({ recipient, subject, emailType, status, errorMessage = 
 }
 
 async function sendViaResend({ to, subject, html, text }) {
+  const payload = { from: env.EMAIL_FROM, to, subject, html, text }
+  if (env.RESEND_REPLY_TO) payload.reply_to = env.RESEND_REPLY_TO
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: env.EMAIL_FROM, to, subject, html, text }),
+    body: JSON.stringify(payload),
   })
   if (!response.ok) {
     const body = await response.text().catch(() => '')
@@ -176,7 +179,7 @@ function waitlistConfirmationHtml({ services }) {
       <div style="max-width:480px;margin:0 auto;background:#F8F3ED;border-radius:18px;padding:32px;">
         <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Private opening access</p>
         <h1 style="font-size:26px;font-weight:500;margin:0 0 16px;">You're on the Allay House waitlist.</h1>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Thank you for joining. You will be among the first to know when Allay House launches, with considered offers shaped around the experiences you selected.</p>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Thank you for joining. You will be among the first to know when Allay House launches, and your 15% first-booking discount code will be sent by email when bookings officially open.</p>
         ${serviceList ? `<p style="font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:#7F6D5C;margin:0 0 4px;">Your selected experiences</p>${serviceList}` : ''}
         <p style="font-size:15px;line-height:1.6;margin:16px 0 0;">With care,<br />Allay House</p>
       </div>
@@ -184,11 +187,22 @@ function waitlistConfirmationHtml({ services }) {
   `
 }
 
+function waitlistConfirmationText({ services }) {
+  const serviceList = services.length ? `\n\nSelected experiences:\n${services.map((service) => `- ${service.name}`).join('\n')}` : ''
+  return `You are on the Allay House waitlist.
+
+Thank you for joining. You will be among the first to know when Allay House launches, and your 15% first-booking discount code will be sent by email when bookings officially open.${serviceList}
+
+With care,
+Allay House`
+}
+
 export async function sendWaitlistConfirmationEmail({ email, services = [], relatedWaitlistId = null }) {
   return sendEmail({
     to: email,
     subject: 'You are on the Allay House waitlist',
     html: waitlistConfirmationHtml({ services }),
+    text: waitlistConfirmationText({ services }),
     emailType: 'waitlist_confirmation',
     relatedWaitlistId,
   })
@@ -212,14 +226,23 @@ function launchCouponHtml({ couponCode, discountType, discountValue }) {
 // Not triggered automatically anywhere — call this manually (e.g. one-off admin script or a future
 // admin "send launch email" action) once launch mode goes live, to avoid an accidental mass-send.
 export async function sendLaunchCouponEmail({ email, relatedWaitlistId = null }) {
+  const discount = relatedWaitlistId
+    ? await getOrCreateWaitlistLaunchDiscount({ waitlistEntryId: relatedWaitlistId, email })
+    : {
+        code: env.WAITLIST_LAUNCH_COUPON_CODE,
+        discountType: env.WAITLIST_LAUNCH_DISCOUNT_TYPE,
+        discountValue: env.WAITLIST_LAUNCH_DISCOUNT_VALUE,
+      }
+
   return sendEmail({
     to: email,
     subject: 'Allay House is open — your early access offer',
     html: launchCouponHtml({
-      couponCode: env.WAITLIST_LAUNCH_COUPON_CODE,
-      discountType: env.WAITLIST_LAUNCH_DISCOUNT_TYPE,
-      discountValue: env.WAITLIST_LAUNCH_DISCOUNT_VALUE,
+      couponCode: discount.code,
+      discountType: discount.discountType,
+      discountValue: discount.discountValue,
     }),
+    text: `Allay House is open. Your first-booking launch offer code is ${discount.code}.`,
     emailType: 'waitlist_launch_offer',
     relatedWaitlistId,
   })

@@ -17,11 +17,12 @@ export async function createWaitlistEntry(req, res, next) {
     const parsed = waitlistSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ message: 'Enter a valid email and at least one service.' })
 
-    const { entry, services } = await joinWaitlist(parsed.data)
+    const { entry, services, confirmationEmail } = await joinWaitlist(parsed.data)
     return res.status(201).json({
       message: 'You are on the Allay House waitlist.',
       waitlistEntry: { id: entry.id, email: entry.email, status: entry.status },
       services: services.map((service) => ({ id: service.id, name: service.name, slug: service.slug })),
+      email: { confirmationSent: Boolean(confirmationEmail?.sent), skippedDuplicate: Boolean(confirmationEmail?.skipped) },
     })
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message })

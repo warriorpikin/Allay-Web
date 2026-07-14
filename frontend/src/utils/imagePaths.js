@@ -13,6 +13,7 @@ export const imagePaths = {
     heroDetail: '/images/allay/home/home-wellness-section.jpg',
     texture: '/images/allay/home/home-texture.png',
     wellnessSection: '/images/allay/home/home-wellness-section.jpg',
+    wellnessSectionWide: '/images/allay/home/home-wellness-section.png',
     experienceSection: '/images/allay/home/home-wellness-section.jpg',
   },
   categories: {

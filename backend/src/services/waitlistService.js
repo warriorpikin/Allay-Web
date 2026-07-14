@@ -39,6 +39,8 @@ export async function joinWaitlist({ email, selectedServices = [], fullName, pho
   }
 
   const normalizedEmail = email.trim().toLowerCase()
+  const existingEntry = await query('SELECT id FROM waitlist_entries WHERE LOWER(email) = LOWER($1) LIMIT 1', [normalizedEmail])
+  const isNewEntry = !existingEntry.rows[0]
 
   const entryResult = await query(
     `INSERT INTO waitlist_entries (email, full_name, phone, note, status, source)
@@ -63,9 +65,11 @@ export async function joinWaitlist({ email, selectedServices = [], fullName, pho
     )
   }
 
-  await sendWaitlistConfirmationEmail({ email: entry.email, services, relatedWaitlistId: entry.id })
+  const confirmationEmail = isNewEntry
+    ? await sendWaitlistConfirmationEmail({ email: entry.email, services, relatedWaitlistId: entry.id })
+    : { sent: false, skipped: true, reason: 'existing_waitlist_entry' }
 
-  return { entry, services }
+  return { entry, services, confirmationEmail }
 }
 
 export async function listWaitlistEntries() {
