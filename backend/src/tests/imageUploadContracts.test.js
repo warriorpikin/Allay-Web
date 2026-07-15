@@ -45,7 +45,11 @@ function appendTestimonialFields(form, fields = {}) {
     testimonialText: fields.testimonialText || 'A temporary testimonial used to verify image upload contracts.',
     rating: '5',
     isActive: 'true',
-    displayOrder: '999',
+    // The public endpoint caps results at 12 (ORDER BY display_order ASC,
+    // created_at DESC LIMIT 12). Use the lowest order plus "just created" so
+    // this temporary row always sorts within that window, regardless of how
+    // many real testimonials already exist.
+    displayOrder: '0',
   }
   for (const [key, value] of Object.entries(payload)) form.append(key, value)
 }

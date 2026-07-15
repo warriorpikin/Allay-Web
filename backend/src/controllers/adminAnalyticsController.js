@@ -1,4 +1,5 @@
 import { getAnalyticsOverview, getAnalyticsStatus, runAnalyticsDiagnosticReport } from '../services/analyticsService.js'
+import { getBusinessAnalyticsOverview } from '../services/businessAnalyticsService.js'
 
 export async function getStatus(req, res, next) {
   try {
@@ -20,6 +21,15 @@ export async function getOverview(req, res, next) {
 export async function getDiagnostics(req, res, next) {
   try {
     const report = await runAnalyticsDiagnosticReport()
+    return res.json(report)
+  } catch (error) {
+    return next(error)
+  }
+}
+
+export async function getBusinessOverview(req, res, next) {
+  try {
+    const report = await getBusinessAnalyticsOverview(req.query)
     return res.json(report)
   } catch (error) {
     return next(error)

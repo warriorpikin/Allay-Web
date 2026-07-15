@@ -47,7 +47,7 @@ export default function Services() {
 
   return <>
     <header className="page-intro">
-      <SectionHeader eyebrow="Explore the house" title="Care, in every form." subtitle="Beauty, wellness, and movement, each considered and made personal." as="h1" />
+      <SectionHeader eyebrow="Explore the house" title="Care, in every form." subtitle="Beauty and wellness, each considered and made personal." as="h1" />
     </header>
 
     <section className="category-showcase section">

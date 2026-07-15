@@ -11,6 +11,7 @@ import Customers from '../pages/admin/Customers'
 import Dashboard from '../pages/admin/Dashboard'
 import EmailLogs from '../pages/admin/EmailLogs'
 import Payments from '../pages/admin/Payments'
+import Promotions from '../pages/admin/Promotions'
 import ServicesManager from '../pages/admin/ServicesManager'
 import Settings from '../pages/admin/Settings'
 import Testimonials from '../pages/admin/Testimonials'
@@ -65,6 +66,7 @@ export default function AppRoutes() {
         <Route path="customers" element={<Customers />} />
         <Route path="services" element={<ServicesManager />} />
         <Route path="testimonials" element={<Testimonials />} />
+        <Route path="promotions" element={<Promotions />} />
         <Route path="availability" element={<Availability />} />
         <Route path="waitlist" element={<WaitlistManager />} />
         <Route path="payments" element={<Payments />} />

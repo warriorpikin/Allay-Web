@@ -16,6 +16,8 @@ import {
   updateAdminService,
 } from '../../services/adminApi'
 import { formatCurrency } from '../../utils/formatCurrency'
+import { getErrorMessage } from '../../utils/getErrorMessage'
+import { validateImageFile } from '../../utils/imageValidation'
 
 const emptyForm = {
   categoryId: '',
@@ -31,9 +33,6 @@ const emptyForm = {
   simultaneousCapacity: 7,
   displayOrder: 0,
 }
-
-const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-const maxImageSize = 5 * 1024 * 1024
 
 function serviceToForm(service) {
   return {
@@ -128,9 +127,10 @@ export default function ServicesManager() {
       setImageFile(null)
       return
     }
-    if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
+    const validationError = validateImageFile(nextFile)
+    if (validationError) {
       event.target.value = ''
-      toast.error('Upload a JPG, PNG, or WebP image under 5MB.')
+      toast.error(validationError)
       return
     }
     if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
@@ -169,7 +169,7 @@ export default function ServicesManager() {
       setImagePreview(savedService?.image || '')
       refresh()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not save service.')
+      toast.error(getErrorMessage(error, 'Could not save service.'))
     } finally {
       setSaving(false)
     }
@@ -182,7 +182,7 @@ export default function ServicesManager() {
       toast.success('Service removed or set inactive.')
       refresh()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not remove service.')
+      toast.error(getErrorMessage(error, 'Could not remove service.'))
     }
   }
 

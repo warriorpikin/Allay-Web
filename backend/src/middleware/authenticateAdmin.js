@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
 
 export function authenticateAdmin(req, res, next) {
+  res.setHeader('Cache-Control', 'no-store')
   const [scheme, token] = (req.headers.authorization || '').split(' ')
   if (scheme !== 'Bearer' || !token) return res.status(401).json({ success: false, code: 'AUTH_REQUIRED', message: 'Admin authentication required.' })
 

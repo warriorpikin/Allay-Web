@@ -1,21 +1,22 @@
-import { ArrowRight, CalendarDays, ChevronRight, Clock3, Flower2, Leaf, MoveUpRight, Sparkles } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowRight, CalendarDays, Clock3, RefreshCcw } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import ServiceHeroCarousel from '../../components/home/ServiceHeroCarousel'
 import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import SectionHeader from '../../components/common/SectionHeader'
 import StarRating from '../../components/common/StarRating'
 import { getCategoryImage } from '../../data/allayImages'
+import { buildDivisionSlides } from '../../data/serviceDivisions'
 import { useSiteMode } from '../../hooks/useSiteMode'
-import { getTestimonials } from '../../services/servicesApi'
+import { getServices, getTestimonials } from '../../services/servicesApi'
 import { imagePaths } from '../../utils/imagePaths'
 
-const divisions = [
-  { name: 'Allay Spa', note: 'Massage / Facials / Sauna', tone: 'stone', slug: 'allay-spa', icon: Leaf },
-  { name: 'Allay Pilates', note: 'Movement / Strength / Balance', tone: 'beige', slug: 'allay-pilates', icon: Sparkles },
-  { name: 'Nail & Lash Studios', note: 'Nails / Brows / Lashes', tone: 'taupe', slug: 'allay-nail-studio', icon: Flower2 },
-  { name: 'Allay Salon', note: 'Hair / Braiding / Headspa', tone: 'cream', slug: 'allay-salon', icon: MoveUpRight },
-]
+// The "Explore the House" grid duplicated the same category imagery and CTAs
+// now shown in the hero carousel above it. Disabled, not deleted — its
+// markup and data wiring are preserved below (search SHOW_LEGACY_EXPLORE_HOUSE_SECTION)
+// in case a future redesign wants to reuse it.
+const SHOW_LEGACY_EXPLORE_HOUSE_SECTION = false
 
 const fallbackTestimonials = [
   { name: 'Amara N.', rating: 5, text: 'Allay House feels calm from the first moment. The care is thoughtful, polished, and deeply restorative.' },
@@ -31,14 +32,44 @@ function TestimonialAvatar({ item }) {
   </div>
 }
 
+// Matches the hero-stack visual column's footprint exactly, with no legacy
+// copy or CTAs, so nothing resembling the old hero is ever visible while
+// services load. The left text column is static (never loading-gated), so it
+// carries no flash risk and is rendered unconditionally in the hero markup.
+function HeroSkeleton() {
+  return <div className="hero-stack hero-stack--skeleton" aria-hidden="true">
+    <div className="hero-stack__track">
+      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--side hero-stack__skeleton-card--left" />
+      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--active" />
+      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--side hero-stack__skeleton-card--right" />
+    </div>
+  </div>
+}
+
+function HeroEmpty() {
+  return <div className="hero-stack hero-stack--message">
+    <p>Allay House — considered treatments and everyday rituals under one calm roof.</p>
+  </div>
+}
+
+function HeroError({ onRetry }) {
+  return <div className="hero-stack hero-stack--message">
+    <p>We couldn&apos;t load services just now.</p>
+    <Button type="button" variant="outline" onClick={onRetry}><RefreshCcw size={15} /> Retry</Button>
+  </div>
+}
+
 export default function Home() {
   const { isLive } = useSiteMode()
   const [testimonials, setTestimonials] = useState(fallbackTestimonials)
+  const [services, setServices] = useState([])
+  const [servicesState, setServicesState] = useState('loading')
 
   useEffect(() => {
     getTestimonials()
       .then((data) => {
         const nextTestimonials = (data.testimonials || []).map((item) => ({
+          id: item.id,
           name: item.customerName,
           rating: item.rating,
           text: item.testimonialText,
@@ -49,43 +80,43 @@ export default function Home() {
       .catch(() => {})
   }, [])
 
+  const loadServices = useCallback(() => {
+    setServicesState('loading')
+    getServices()
+      .then((data) => { setServices(data.services || []); setServicesState('loaded') })
+      .catch(() => setServicesState('error'))
+  }, [])
+
+  useEffect(() => { loadServices() }, [loadServices])
+
+  const divisionSlides = useMemo(() => buildDivisionSlides(services), [services])
+
   return <>
     <section className="home-hero">
       <div className="home-hero__content reveal">
-        <span className="eyebrow">Beauty / Wellness / Movement</span>
+        <span className="eyebrow">Beauty / Wellness</span>
         <h1>A softer place to<br />return to yourself.</h1>
-        <p>Welcome to Allay House, considered treatments, restorative movement, and everyday rituals under one calm roof.</p>
+        <p>Welcome to Allay House — considered treatments and everyday rituals under one calm roof.</p>
         <div className="hero__actions">
-          {isLive
-            ? <><Button to="/book">Book an appointment <ArrowRight size={17} /></Button><Link className="text-link" to="/services">Explore services <ChevronRight size={16} /></Link></>
-            : <><Button to="/waitlist">Join our private waitlist <ArrowRight size={17} /></Button><Link className="text-link" to="/services">Explore the house <ChevronRight size={16} /></Link></>}
+          <Button to={isLive ? '/book' : '/waitlist'}>{isLive ? 'Book now' : 'Join the waitlist'} <ArrowRight size={17} /></Button>
         </div>
       </div>
       <div className="home-hero__visual">
-        <span className="home-hero__accent home-hero__accent--sage" />
-        <span className="home-hero__accent home-hero__accent--mauve" />
-        <ImagePlaceholder src={imagePaths.home.heroMain} fallbackSrc={imagePaths.placeholders.hero} alt="Serene treatment space at Allay House" variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
-        <div className="home-hero__floating"><Flower2 size={20} /><div><small>Inside the house</small><strong>Spa / movement / beauty</strong></div></div>
+        {servicesState === 'loading' && <HeroSkeleton />}
+        {servicesState === 'error' && <HeroError onRetry={loadServices} />}
+        {servicesState === 'loaded' && (divisionSlides.length
+          ? <ServiceHeroCarousel slides={divisionSlides} isLive={isLive} />
+          : <HeroEmpty />)}
       </div>
     </section>
 
-    <section className="manifesto section">
-      <SectionHeader
-        eyebrow="The house of Allay"
-        title={<>Everything you need to feel<br /><em>beautifully restored.</em></>}
-        subtitle="From skin and body rituals to thoughtful movement and finishing touches, every Allay experience is designed to soften the pace of your day."
-        centered
-      />
-    </section>
-
-    <section className="divisions section">
+    {SHOW_LEGACY_EXPLORE_HOUSE_SECTION && <section className="divisions section">
       <div className="section-heading">
         <SectionHeader eyebrow="Explore the house" title="Care, in every form." />
-        <Link className="text-link" to="/services">View all services <ArrowRight size={16} /></Link>
       </div>
       <div className="division-grid">
-        {divisions.map(({ name, note, tone, slug, icon: Icon }, index) => (
-          <Link to={`/services?category=${slug}`} className={`division-card division-card--${tone}`} style={{ '--card-image': `url(${getCategoryImage(slug)})` }} key={name}>
+        {divisionSlides.map(({ name, note, tone, slug, icon: Icon }, index) => (
+          <Link to={`/services?category=${slug}`} className={`division-card division-card--${tone}`} style={{ '--card-image': `url(${getCategoryImage(slug)})` }} key={slug}>
             <span>0{index + 1}</span>
             <Icon size={27} strokeWidth={1.2} />
             <div><h3>{name}</h3><p>{note}</p></div>
@@ -93,18 +124,27 @@ export default function Home() {
           </Link>
         ))}
       </div>
+    </section>}
+
+    <section className="manifesto section">
+      <SectionHeader
+        eyebrow="Welcome to Allay House"
+        title={<>Everything you need to feel<br /><em>beautifully restored.</em></>}
+        subtitle="From skin and body rituals to thoughtful movement and finishing touches, every Allay experience is designed to soften the pace of your day."
+        centered
+      />
     </section>
 
     <section className="ritual section">
       <div className="ritual__arch"><ImagePlaceholder src={imagePaths.home.wellnessSection} fallbackSrc={imagePaths.placeholders.hero} alt="A calm treatment setting" variant="arch" width="760" height="1000" /></div>
-      <div className="ritual__copy"><SectionHeader eyebrow="Your time, held gently" title="Make a ritual of feeling well." subtitle="We believe care works best when it feels unhurried. Choose a treatment, find a time that suits you, and let us take care of the rest." /><Button to="/about" variant="outline">Discover our philosophy <ArrowRight size={16} /></Button></div>
+      <div className="ritual__copy"><SectionHeader eyebrow="Your time, held gently" title="Make a ritual of feeling well." subtitle="We believe care works best when it feels unhurried. Choose a treatment, find a time that suits you, and let us take care of the rest." /><Button to="/about" variant="outline">Discover Allay House <ArrowRight size={16} /></Button></div>
     </section>
 
     <section className="testimonials section">
       <SectionHeader eyebrow="Client notes" title="Soft words from the house." centered />
       <div className="testimonial-grid">
         {testimonials.map((item) => (
-          <article className="testimonial-card" key={item.name}>
+          <article className="testimonial-card" key={item.id || item.name}>
             <TestimonialAvatar item={item} />
             <StarRating rating={item.rating} className="testimonial-card__rating" />
             <p>{item.text}</p>

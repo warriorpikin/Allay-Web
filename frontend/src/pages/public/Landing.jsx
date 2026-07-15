@@ -56,7 +56,7 @@ export default function Landing() {
       </section>
 
       <section className="landing-intro" id="experience">
-        <span className="eyebrow">The house of Allay</span>
+        <span className="eyebrow">Care, beautifully considered</span>
         <h2>Designed for the soft return to yourself.</h2>
         <p>Every visit should feel composed, personal, and easy to move through. Allay House gathers different forms of self-care under one brand so guests can plan a single treatment, a full ritual, or an ongoing rhythm of care without losing the calm.</p>
       </section>

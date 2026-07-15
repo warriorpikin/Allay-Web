@@ -18,9 +18,7 @@ export default function Navbar() {
     <nav className={open ? 'nav nav--open' : 'nav'} aria-label="Main navigation">
       {publicNavigationLinks.map((link) => <NavLink key={link.to} onClick={close} to={link.to} end={link.to === '/'}>{link.label}</NavLink>)}
       <NavLink onClick={close} to={isAuthenticated ? '/book' : '/auth/sign-in'}>{isAuthenticated ? 'Account' : 'Login'}</NavLink>
-      {isLive
-        ? <Button to="/book" size="sm" onClick={close}>Book appointment <ArrowRight size={16} /></Button>
-        : null}
+      <Button to={isLive ? '/book' : '/waitlist'} size="sm" onClick={close}>{isLive ? 'Book appointment' : 'Join the waitlist'} <ArrowRight size={16} /></Button>
     </nav>
   </header>
 }

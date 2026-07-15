@@ -6,5 +6,5 @@ import Navbar from './Navbar'
 export default function PublicLayout() {
   const { pathname } = useLocation()
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [pathname])
-  return <><Navbar /><main><Outlet /></main><Footer /></>
+  return <><Navbar /><main className="public-main"><Outlet /></main><Footer /></>
 }

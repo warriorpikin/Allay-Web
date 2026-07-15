@@ -14,6 +14,7 @@ export const adminNavigationLinks = [
   { label: 'Availability', to: '/allay-admin/availability' },
   { label: 'Services', to: '/allay-admin/services' },
   { label: 'Testimonials', to: '/allay-admin/testimonials' },
+  { label: 'Website Promotions', to: '/allay-admin/promotions' },
   { label: 'Waitlist', to: '/allay-admin/waitlist' },
   { label: 'Payments', to: '/allay-admin/payments' },
   { label: 'Email logs', to: '/allay-admin/email-logs' },

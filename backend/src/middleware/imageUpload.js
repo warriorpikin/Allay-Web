@@ -2,9 +2,13 @@ import multer from 'multer'
 
 const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
+// Matches frontend/src/utils/imageValidation.js MAX_IMAGE_SIZE_BYTES so a file
+// that passes client-side validation is never rejected here as too large.
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+
 export const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5_000_000, files: 1 },
+  limits: { fileSize: MAX_IMAGE_SIZE_BYTES, files: 1 },
   fileFilter(req, file, callback) {
     if (!allowedMimeTypes.has(file.mimetype)) {
       const error = new Error('Unsupported image format. Please choose a JPG, PNG, or WebP image.')

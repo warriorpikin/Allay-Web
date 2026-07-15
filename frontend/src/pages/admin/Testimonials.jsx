@@ -14,6 +14,8 @@ import {
   getAdminTestimonials,
   updateAdminTestimonial,
 } from '../../services/adminApi'
+import { getErrorMessage } from '../../utils/getErrorMessage'
+import { validateImageFile } from '../../utils/imageValidation'
 
 const emptyForm = {
   customerName: '',
@@ -24,9 +26,6 @@ const emptyForm = {
   isActive: true,
   displayOrder: 0,
 }
-
-const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
-const maxImageSize = 5 * 1024 * 1024
 
 function toForm(testimonial) {
   return {
@@ -100,9 +99,10 @@ export default function Testimonials() {
       setImageFile(null)
       return
     }
-    if (!allowedImageTypes.includes(nextFile.type) || nextFile.size > maxImageSize) {
+    const validationError = validateImageFile(nextFile)
+    if (validationError) {
       event.target.value = ''
-      toast.error('Upload a JPG, PNG, or WebP image under 5MB.')
+      toast.error(validationError)
       return
     }
     if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
@@ -137,7 +137,7 @@ export default function Testimonials() {
       setImagePreview(savedTestimonial?.profileImageUrl || '')
       refresh()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not save testimonial.')
+      toast.error(getErrorMessage(error, 'Could not save testimonial.'))
     } finally {
       setSaving(false)
     }
@@ -150,7 +150,7 @@ export default function Testimonials() {
       toast.success('Testimonial deleted.')
       refresh()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not delete testimonial.')
+      toast.error(getErrorMessage(error, 'Could not delete testimonial.'))
     }
   }
 

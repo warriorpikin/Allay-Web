@@ -12,6 +12,7 @@ import adminAnalyticsRoutes from './routes/adminAnalyticsRoutes.js'
 import adminBookingRoutes from './routes/adminBookingRoutes.js'
 import adminCustomerRoutes from './routes/adminCustomerRoutes.js'
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
+import adminPromotionRoutes from './routes/adminPromotionRoutes.js'
 import adminServiceRoutes from './routes/adminServiceRoutes.js'
 import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
 import adminTestimonialRoutes from './routes/adminTestimonialRoutes.js'
@@ -23,6 +24,7 @@ import bookingRoutes from './routes/bookingRoutes.js'
 import contactRoutes from './routes/contactRoutes.js'
 import customerAuthRoutes from './routes/customerAuthRoutes.js'
 import discountRoutes from './routes/discountRoutes.js'
+import promotionRoutes from './routes/promotionRoutes.js'
 import serviceRoutes from './routes/serviceRoutes.js'
 import settingsRoutes from './routes/settingsRoutes.js'
 import testimonialRoutes from './routes/testimonialRoutes.js'
@@ -67,6 +69,7 @@ app.use('/api/admin/analytics', adminAnalyticsRoutes)
 app.use('/api/admin/bookings', adminBookingRoutes)
 app.use('/api/admin/customers', adminCustomerRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)
+app.use('/api/admin/promotions', adminPromotionRoutes)
 app.use('/api/admin/services', adminServiceRoutes)
 app.use('/api/admin/settings', adminSettingsRoutes)
 app.use('/api/admin/testimonials', adminTestimonialRoutes)
@@ -79,6 +82,7 @@ app.use('/api/contact', contactRoutes)
 app.use('/api/auth', customerAuthRoutes)
 app.use('/api/discount-codes', discountRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api', promotionRoutes)
 app.use('/api', testimonialRoutes)
 app.use('/api/waitlist', waitlistRoutes)
 app.use('/api', serviceRoutes)

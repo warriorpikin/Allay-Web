@@ -8,6 +8,7 @@ import WaitlistServiceSelector from '../../components/common/WaitlistServiceSele
 import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
 import { placeholderServices } from '../../data/placeholderServices'
+import { categoryAliases, normalizeToken } from '../../data/serviceDivisions'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getServices } from '../../services/servicesApi'
@@ -16,17 +17,6 @@ import { imagePaths } from '../../utils/imagePaths'
 
 function WaitlistHeader() {
   return <div className="waitlist-page__top"><Logo /><div className="waitlist-page__nav"><Link to="/"><ArrowLeft size={15} /> Return home</Link></div></div>
-}
-
-const categoryAliases = {
-  'allay-spa': ['facials', 'massage', 'sauna', 'headspa', 'body-beauty'],
-  'advanced-skin-treatments': ['facials'],
-  'body-and-beauty': ['body-beauty'],
-  'hair-and-wigs': ['hair-wigs'],
-}
-
-function normalizeToken(value = '') {
-  return String(value).trim().toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
 function servicesFromQuery(services, searchParams) {

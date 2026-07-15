@@ -23,8 +23,16 @@ export function AuthProvider({ children }) {
     return session
   }
 
-  const login = async (credentials) => persistSession(await signInCustomer(credentials))
-  const signup = async (details) => persistSession(await signUpCustomer(details))
+  const login = async (credentials) => {
+    const session = persistSession(await signInCustomer(credentials))
+    window.dispatchEvent(new CustomEvent('allay:auth-success', { detail: { type: 'login' } }))
+    return session
+  }
+  const signup = async (details) => {
+    const session = persistSession(await signUpCustomer(details))
+    window.dispatchEvent(new CustomEvent('allay:auth-success', { detail: { type: 'signup' } }))
+    return session
+  }
   const logout = async () => {
     await logoutCustomer()
     localStorage.removeItem(CUSTOMER_TOKEN_KEY)

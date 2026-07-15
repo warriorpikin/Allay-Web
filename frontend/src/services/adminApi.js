@@ -34,6 +34,7 @@ export const getAdminAnalyticsOverview = (params = {}) => {
   return request
 }
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
+export const getAdminBusinessAnalytics = (params = {}) => api.get('/admin/analytics/business-overview', { params }).then(({ data }) => data)
 export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
 export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ data }) => data)
 export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(({ data }) => data)
@@ -54,6 +55,19 @@ export const getSettings = () => api.get('/admin/settings').then(({ data }) => d
 export const updateSetting = (key, data) => api.patch(`/admin/settings/${key}`, data).then(({ data: response }) => response)
 export const updateBookingStatus = (id, data) => api.patch(`/admin/bookings/${id}/status`, data).then((response) => response.data)
 export const updateBookingPaymentStatus = (id, data) => api.patch(`/admin/bookings/${id}/payment-status`, data).then((response) => response.data)
+
+export const getAdminPromotions = () => api.get('/admin/promotions').then(({ data }) => data)
+export const getAdminPromotion = (id) => api.get(`/admin/promotions/${id}`).then(({ data }) => data)
+export const createAdminPromotion = (data) => api.post('/admin/promotions', data).then(({ data: response }) => response)
+export const updateAdminPromotion = (id, data) => api.patch(`/admin/promotions/${id}`, data).then(({ data: response }) => response)
+export const deleteAdminPromotion = (id) => api.delete(`/admin/promotions/${id}`)
+export const duplicateAdminPromotion = (id) => api.post(`/admin/promotions/${id}/duplicate`).then(({ data }) => data)
+export const setAdminPromotionStatus = (id, status) => api.patch(`/admin/promotions/${id}/status`, { status }).then(({ data }) => data)
+export const uploadPromotionImage = (file) => {
+  const form = new FormData()
+  form.append('image', file)
+  return api.post('/admin/promotions/upload-image', form).then(({ data }) => data)
+}
 
 export const getBusinessHours = () => api.get('/admin/availability/business-hours').then(({ data }) => data)
 export const updateBusinessHours = (id, data) => api.patch(`/admin/availability/business-hours/${id}`, data).then(({ data: response }) => response)
