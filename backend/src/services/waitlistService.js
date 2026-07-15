@@ -87,12 +87,16 @@ export async function listWaitlistEntries() {
   return entries.rows
 }
 
+// Skips entries whose coupon email was already sent (launch_email_sent) so a
+// second click, a retried request, or re-running this against the same ids
+// never sends a duplicate coupon email to the same person.
 export async function sendCouponEmailsToWaitlist({ ids = [] } = {}) {
   const hasIds = Array.isArray(ids) && ids.length > 0
   const result = await query(
     `SELECT id, email
      FROM waitlist_entries
      WHERE status = 'active'
+       AND launch_email_sent = FALSE
        AND ($1::boolean = FALSE OR id = ANY($2::uuid[]))
      ORDER BY created_at ASC`,
     [hasIds, hasIds ? ids : []],
@@ -101,6 +105,9 @@ export async function sendCouponEmailsToWaitlist({ ids = [] } = {}) {
   const results = []
   for (const entry of result.rows) {
     const emailResult = await sendLaunchCouponEmail({ email: entry.email, relatedWaitlistId: entry.id })
+    if (emailResult.sent) {
+      await query('UPDATE waitlist_entries SET launch_email_sent = TRUE, launch_email_sent_at = NOW() WHERE id = $1', [entry.id])
+    }
     results.push({ id: entry.id, email: entry.email, sent: emailResult.sent })
   }
 

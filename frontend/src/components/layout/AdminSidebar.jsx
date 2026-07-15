@@ -15,6 +15,7 @@ const iconsByPath = {
   '/allay-admin/promotions': Megaphone,
   '/allay-admin/waitlist': Users,
   '/allay-admin/payments': CreditCard,
+  '/allay-admin/emails': Mail,
   '/allay-admin/email-logs': Mail,
   '/allay-admin/settings': Settings,
 }

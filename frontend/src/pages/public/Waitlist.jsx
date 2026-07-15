@@ -13,7 +13,9 @@ import { useSiteMode } from '../../hooks/useSiteMode'
 import { ANALYTICS_EVENTS, trackEvent } from '../../services/analytics'
 import { getServices } from '../../services/servicesApi'
 import { joinWaitlist } from '../../services/waitlistApi'
+import { getErrorMessage } from '../../utils/getErrorMessage'
 import { imagePaths } from '../../utils/imagePaths'
+import { validateWaitlistForm } from '../../utils/validateWaitlistForm'
 
 // The visitor may have arrived from the pre-launch landing page (which
 // passes { from: '/landing' } via router state) or from any other entry
@@ -58,6 +60,8 @@ export default function Waitlist() {
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ email: '', fullName: '', phone: '', note: '' })
   const [started, setStarted] = useState(false)
+  const [touched, setTouched] = useState({})
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   useEffect(() => {
     setServicesLoading(true)
@@ -88,16 +92,25 @@ export default function Waitlist() {
     setForm((current) => ({ ...current, [field]: event.target.value }))
   }
 
+  const blur = (field) => () => setTouched((current) => ({ ...current, [field]: true }))
+
+  const formErrors = validateWaitlistForm({ fullName: form.fullName, phone: form.phone, email: form.email, selectedServices: selected })
+  const fieldError = (field) => (touched[field] || submitAttempted) ? formErrors[field] : undefined
+
   const submit = (event) => {
     event.preventDefault()
-    if (!selected.length) { toast.error('Choose at least one service interest.'); return }
     markStarted()
+    setSubmitAttempted(true)
+    if (Object.keys(formErrors).length) {
+      toast.error(formErrors.fullName || formErrors.phone || formErrors.email || formErrors.services)
+      return
+    }
     setSubmitting(true)
     joinWaitlist({
-      email: form.email,
+      email: form.email.trim(),
       selectedServices: selected.map((service) => service.slug || service.id),
-      fullName: form.fullName || undefined,
-      phone: form.phone || undefined,
+      fullName: form.fullName.trim(),
+      phone: form.phone.trim(),
       note: form.note || undefined,
     })
       .then(() => {
@@ -107,7 +120,7 @@ export default function Waitlist() {
       })
       .catch((error) => {
         trackEvent(ANALYTICS_EVENTS.WAITLIST_ERROR, { source_section: 'waitlist_form', error_type: error.response?.status === 409 ? 'duplicate_or_conflict' : 'request_failed', result: 'failed' })
-        toast.error(error.response?.data?.message || 'We could not add you to the waitlist. Please try again.')
+        toast.error(getErrorMessage(error, 'We could not add you to the waitlist. Please try again.'))
       })
       .finally(() => setSubmitting(false))
   }
@@ -124,17 +137,18 @@ export default function Waitlist() {
           <span className="eyebrow">Private opening access</span>
           <h1>What are you<br />waiting for?</h1>
           <p>Join the Allay House waitlist for early appointment access and 15% off your first booking when Allay House launches. The discount code will be sent to your email when bookings open.</p>
-          <form onSubmit={submit}>
-            <Input id="waitlist-email" name="email" type="email" label="Email" required value={form.email} onChange={update('email')} />
+          <form onSubmit={submit} noValidate>
+            <Input id="waitlist-email" name="email" type="email" label="Email" required value={form.email} onChange={update('email')} onBlur={blur('email')} error={fieldError('email')} />
             <div className="form-row">
-              <Input id="waitlist-name" name="fullName" label="Full name (optional)" value={form.fullName} onChange={update('fullName')} />
-              <Input id="waitlist-phone" name="phone" type="tel" label="Phone number (optional)" value={form.phone} onChange={update('phone')} />
+              <Input id="waitlist-name" name="fullName" label="Full name" required minLength={2} value={form.fullName} onChange={update('fullName')} onBlur={blur('fullName')} error={fieldError('fullName')} />
+              <Input id="waitlist-phone" name="phone" type="tel" label="Phone number" required value={form.phone} onChange={update('phone')} onBlur={blur('phone')} error={fieldError('phone')} />
             </div>
-            <div className="form-group">
-              <label>Services of interest</label>
+            <div className={`form-group ${fieldError('services') ? 'form-group--error' : ''}`}>
+              <label>Services of interest<span aria-hidden="true"> *</span></label>
               {servicesLoading
                 ? <div className="waitlist-service-grid" aria-label="Loading services">{Array.from({ length: 5 }).map((_, index) => <div className="waitlist-service-skeleton" key={index} aria-hidden="true"><span /><div><i /><b /></div></div>)}</div>
                 : <WaitlistServiceSelector services={services} selected={selected} isLive={isLive} onChange={(nextSelected) => { markStarted(); setSelected(nextSelected) }} />}
+              {fieldError('services') && <small className="form-group__error">{fieldError('services')}</small>}
               {!isLive && <p className="waitlist-price-note">Pricing will be revealed at launch. Join the waitlist to receive final pricing and your exclusive 15% launch discount.</p>}
             </div>
             <Textarea id="waitlist-note" name="note" label="Anything you would like us to know? (optional)" value={form.note} onChange={update('note')} />

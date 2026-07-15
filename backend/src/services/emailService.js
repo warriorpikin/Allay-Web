@@ -1,19 +1,8 @@
 import { query } from '../config/database.js'
 import { env } from '../config/env.js'
+import { escapeHtml, formatCurrency } from '../emails/layouts/allayEmailLayout.js'
+import { renderWaitlistCouponEmail } from '../emails/templates/waitlistCouponEmail.js'
 import { getOrCreateWaitlistLaunchDiscount } from './discountService.js'
-
-function escapeHtml(value = '') {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(value || 0))
-}
 
 function formatServices(services = []) {
   return services.map((service) => `<li style="margin-bottom:8px;"><strong>${escapeHtml(service.name || service.service_name)}</strong><br><span>${Number(service.duration_minutes || service.durationMinutes || 0)} minutes / ${formatCurrency(service.price)}</span></li>`).join('')
@@ -40,9 +29,12 @@ async function logEmail({ recipient, subject, emailType, status, errorMessage = 
   }
 }
 
-async function sendViaResend({ to, subject, html, text }) {
-  const payload = { from: env.EMAIL_FROM, to, subject, html, text }
-  if (env.RESEND_REPLY_TO) payload.reply_to = env.RESEND_REPLY_TO
+// `replyTo: null` explicitly omits the Reply-To header (no-reply mode); `undefined`
+// (the default) falls back to the configured default reply-to address.
+async function sendViaResend({ to, subject, html, text, from, replyTo }) {
+  const payload = { from: from || env.EMAIL_FROM, to, subject, html, text }
+  const resolvedReplyTo = replyTo === null ? '' : (replyTo || env.EMAIL_DEFAULT_REPLY_TO)
+  if (resolvedReplyTo) payload.reply_to = resolvedReplyTo
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -53,11 +45,14 @@ async function sendViaResend({ to, subject, html, text }) {
   })
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    throw new Error(`Resend request failed (${response.status}): ${body}`)
+    const error = new Error(`Resend request failed (${response.status}): ${body}`)
+    error.providerStatus = response.status
+    throw error
   }
+  return response.json().catch(() => ({}))
 }
 
-export async function sendEmail({ to, subject, html, text, emailType, relatedWaitlistId = null, relatedBookingId = null }) {
+export async function sendEmail({ to, subject, html, text, emailType, from, replyTo, relatedWaitlistId = null, relatedBookingId = null }) {
   if (!env.RESEND_API_KEY) {
     console.info(`[email] RESEND_API_KEY not configured — would send "${subject}" to ${to}`)
     await logEmail({ recipient: to, subject, emailType, status: 'skipped', errorMessage: 'RESEND_API_KEY not configured', relatedWaitlistId, relatedBookingId })
@@ -65,13 +60,13 @@ export async function sendEmail({ to, subject, html, text, emailType, relatedWai
   }
 
   try {
-    await sendViaResend({ to, subject, html, text })
+    const result = await sendViaResend({ to, subject, html, text, from, replyTo })
     await logEmail({ recipient: to, subject, emailType, status: 'sent', relatedWaitlistId, relatedBookingId })
-    return { sent: true }
+    return { sent: true, providerMessageId: result?.id || null }
   } catch (error) {
     console.error(`[email] Failed to send "${subject}" to ${to}:`, error.message)
     await logEmail({ recipient: to, subject, emailType, status: 'failed', errorMessage: error.message, relatedWaitlistId, relatedBookingId })
-    return { sent: false }
+    return { sent: false, error: error.message, providerStatus: error.providerStatus || null }
   }
 }
 
@@ -208,24 +203,26 @@ export async function sendWaitlistConfirmationEmail({ email, services = [], rela
   })
 }
 
-function launchCouponHtml({ couponCode, discountType, discountValue }) {
-  const discountLabel = discountType === 'percent' ? `${discountValue}% off` : `₦${Number(discountValue).toLocaleString('en-NG')} off`
-  return `
-    <div style="font-family:Georgia,serif;background:#F5F0EA;padding:32px;color:#372418;">
-      <div style="max-width:480px;margin:0 auto;background:#F8F3ED;border-radius:18px;padding:32px;">
-        <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Allay House is open</p>
-        <h1 style="font-size:26px;font-weight:500;margin:0 0 16px;">Your early access has arrived.</h1>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">As promised, here is your considered launch offer of <strong>${discountLabel}</strong> for your first Allay House visit.</p>
-        <p style="font-size:20px;letter-spacing:0.08em;text-align:center;background:#E7DED3;border-radius:12px;padding:14px;margin:0 0 16px;"><strong>${couponCode}</strong></p>
-        <p style="font-size:15px;line-height:1.6;margin:0;">We look forward to welcoming you.<br />With care, Allay House</p>
-      </div>
-    </div>
-  `
+async function getWaitlistEntryForCoupon(waitlistEntryId) {
+  const entryResult = await query('SELECT id, full_name AS "fullName", email FROM waitlist_entries WHERE id = $1', [waitlistEntryId])
+  const entry = entryResult.rows[0]
+  if (!entry) return null
+  const servicesResult = await query(
+    `SELECT s.name, s.price
+     FROM waitlist_selected_services wss
+     JOIN services s ON s.id = wss.service_id
+     WHERE wss.waitlist_entry_id = $1
+     ORDER BY s.display_order ASC, s.name ASC`,
+    [waitlistEntryId],
+  )
+  return { ...entry, services: servicesResult.rows }
 }
 
-// Not triggered automatically anywhere — call this manually (e.g. one-off admin script or a future
-// admin "send launch email" action) once launch mode goes live, to avoid an accidental mass-send.
+// Triggered by the admin "Send coupon emails" action (waitlistService.sendCouponEmailsToWaitlist)
+// once launch mode goes live. The caller is responsible for skipping entries whose coupon
+// email was already sent and for recording success against `launch_email_sent`.
 export async function sendLaunchCouponEmail({ email, relatedWaitlistId = null }) {
+  const waitlistEntry = relatedWaitlistId ? await getWaitlistEntryForCoupon(relatedWaitlistId) : null
   const discount = relatedWaitlistId
     ? await getOrCreateWaitlistLaunchDiscount({ waitlistEntryId: relatedWaitlistId, email })
     : {
@@ -234,16 +231,42 @@ export async function sendLaunchCouponEmail({ email, relatedWaitlistId = null })
         discountValue: env.WAITLIST_LAUNCH_DISCOUNT_VALUE,
       }
 
+  const rendered = renderWaitlistCouponEmail({
+    fullName: waitlistEntry?.fullName,
+    couponCode: discount.code,
+    discountType: discount.discountType,
+    discountValue: discount.discountValue,
+    services: waitlistEntry?.services || [],
+  })
+
   return sendEmail({
     to: email,
-    subject: 'Allay House is open — your early access offer',
-    html: launchCouponHtml({
-      couponCode: discount.code,
-      discountType: discount.discountType,
-      discountValue: discount.discountValue,
-    }),
-    text: `Allay House is open. Your first-booking launch offer code is ${discount.code}.`,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
     emailType: 'waitlist_launch_offer',
     relatedWaitlistId,
+  })
+}
+
+// Sends the same production template to only the configured
+// WAITLIST_COUPON_TEST_RECIPIENTS allow-list, using a non-redeemable test
+// coupon code. Never touches discount_codes, launch_email_sent, or waitlist status.
+export async function sendWaitlistCouponTestEmail({ to, fullName, services = [] }) {
+  const rendered = renderWaitlistCouponEmail({
+    fullName,
+    couponCode: 'TEST-ALLAY-15',
+    discountType: env.WAITLIST_LAUNCH_DISCOUNT_TYPE,
+    discountValue: env.WAITLIST_LAUNCH_DISCOUNT_VALUE,
+    services,
+    isTest: true,
+  })
+
+  return sendEmail({
+    to,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    emailType: 'waitlist_coupon_test',
   })
 }

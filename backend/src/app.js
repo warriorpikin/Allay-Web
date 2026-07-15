@@ -14,6 +14,7 @@ import adminAnalyticsRoutes from './routes/adminAnalyticsRoutes.js'
 import adminBookingRoutes from './routes/adminBookingRoutes.js'
 import adminCustomerRoutes from './routes/adminCustomerRoutes.js'
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
+import adminEmailRoutes from './routes/adminEmailRoutes.js'
 import adminPromotionRoutes from './routes/adminPromotionRoutes.js'
 import adminServiceRoutes from './routes/adminServiceRoutes.js'
 import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
@@ -182,6 +183,7 @@ app.use('/api/admin/analytics', adminAnalyticsRoutes)
 app.use('/api/admin/bookings', adminBookingRoutes)
 app.use('/api/admin/customers', adminCustomerRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)
+app.use('/api/admin/emails', adminEmailRoutes)
 app.use('/api/admin/promotions', adminPromotionRoutes)
 app.use('/api/admin/services', adminServiceRoutes)
 app.use('/api/admin/settings', adminSettingsRoutes)

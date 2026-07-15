@@ -69,6 +69,20 @@ export const uploadPromotionImage = (file) => {
   return api.post('/admin/promotions/upload-image', form).then(({ data }) => data)
 }
 
+export const getEmailRecipients = (params) => api.get('/admin/emails/recipients', { params }).then(({ data }) => data)
+export const previewCampaignEmail = (payload) => api.post('/admin/emails/preview', payload).then(({ data }) => data)
+export const sendTestCampaignEmail = (payload) => api.post('/admin/emails/test', payload).then(({ data }) => data)
+export const sendCampaignEmail = (payload) => api.post('/admin/emails/send', payload).then(({ data }) => data)
+export const getEmailCampaigns = () => api.get('/admin/emails/campaigns').then(({ data }) => data)
+export const getEmailCampaign = (id) => api.get(`/admin/emails/campaigns/${id}`).then(({ data }) => data)
+export const uploadCampaignImage = (file) => {
+  const form = new FormData()
+  form.append('image', file)
+  return api.post('/admin/emails/upload-image', form).then(({ data }) => data)
+}
+export const previewWaitlistCouponEmail = (payload) => api.post('/admin/emails/preview-waitlist-coupon', payload).then(({ data }) => data)
+export const sendWaitlistCouponTest = (payload) => api.post('/admin/emails/test-waitlist-coupon', payload).then(({ data }) => data)
+
 export const getBusinessHours = () => api.get('/admin/availability/business-hours').then(({ data }) => data)
 export const updateBusinessHours = (id, data) => api.patch(`/admin/availability/business-hours/${id}`, data).then(({ data: response }) => response)
 export const getBlockedPeriods = () => api.get('/admin/availability/blocked-periods').then(({ data }) => data)

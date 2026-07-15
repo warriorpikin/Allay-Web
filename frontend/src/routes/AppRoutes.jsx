@@ -8,6 +8,7 @@ import Availability from '../pages/admin/Availability'
 import BookingDetails from '../pages/admin/BookingDetails'
 import Bookings from '../pages/admin/Bookings'
 import Customers from '../pages/admin/Customers'
+import AdminEmails from '../pages/admin/AdminEmails'
 import Dashboard from '../pages/admin/Dashboard'
 import EmailLogs from '../pages/admin/EmailLogs'
 import Payments from '../pages/admin/Payments'
@@ -70,6 +71,7 @@ export default function AppRoutes() {
         <Route path="availability" element={<Availability />} />
         <Route path="waitlist" element={<WaitlistManager />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="emails" element={<AdminEmails />} />
         <Route path="email-logs" element={<EmailLogs />} />
         <Route path="settings" element={<Settings />} />
       </Route>
