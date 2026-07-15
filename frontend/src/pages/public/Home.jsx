@@ -59,11 +59,18 @@ function HeroError({ onRetry }) {
   </div>
 }
 
+// Module-level (not component state) so it survives a Home unmount/remount —
+// e.g. visiting About then coming back to "/". Without this, every return
+// visit re-ran the full loading skeleton even though we already had good
+// data a second ago, which read as the page "reloading" itself.
+let cachedServices = null
+let cachedTestimonials = null
+
 export default function Home() {
   const { isLive } = useSiteMode()
-  const [testimonials, setTestimonials] = useState(fallbackTestimonials)
-  const [services, setServices] = useState([])
-  const [servicesState, setServicesState] = useState('loading')
+  const [testimonials, setTestimonials] = useState(cachedTestimonials || fallbackTestimonials)
+  const [services, setServices] = useState(cachedServices || [])
+  const [servicesState, setServicesState] = useState(cachedServices ? 'loaded' : 'loading')
 
   useEffect(() => {
     getTestimonials()
@@ -75,16 +82,29 @@ export default function Home() {
           text: item.testimonialText,
           image: item.profileImageUrl,
         }))
-        if (nextTestimonials.length) setTestimonials(nextTestimonials)
+        if (nextTestimonials.length) { cachedTestimonials = nextTestimonials; setTestimonials(nextTestimonials) }
       })
       .catch(() => {})
   }, [])
 
   const loadServices = useCallback(() => {
-    setServicesState('loading')
+    // Only show the skeleton when we have nothing to fall back on. A repeat
+    // visit or a background refresh keeps showing the last-good carousel
+    // while the new request is in flight.
+    if (!cachedServices) setServicesState('loading')
     getServices()
-      .then((data) => { setServices(data.services || []); setServicesState('loaded') })
-      .catch(() => setServicesState('error'))
+      .then((data) => {
+        const nextServices = data.services || []
+        cachedServices = nextServices
+        setServices(nextServices)
+        setServicesState('loaded')
+      })
+      .catch(() => {
+        // A failed background refresh should not blank out a hero that was
+        // already showing real data — only surface the retry panel when we
+        // truly have nothing to display.
+        if (!cachedServices) setServicesState('error')
+      })
   }, [])
 
   useEffect(() => { loadServices() }, [loadServices])

@@ -1,13 +1,18 @@
-import { ArrowRight, ChevronRight, Instagram, Menu, Percent, Sparkles, X } from 'lucide-react'
+import { ArrowRight, ChevronRight, Instagram as InstagramIcon, MapPin, Menu, Percent, Sparkles, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import BrandLogo from '../../components/common/BrandLogo'
 import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
+import TikTokIcon from '../../components/common/TikTokIcon'
+import LandingHeroCarousel from '../../components/landing/LandingHeroCarousel'
 import { getCategoryImage } from '../../data/allayImages'
 import serviceCategories from '../../data/serviceCategories'
+import { siteSocialLinks } from '../../data/socialLinks'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { imagePaths } from '../../utils/imagePaths'
+
+const LANDING_RETURN_STATE = { from: '/landing' }
 
 const experienceNotes = [
   'Thoughtful care across beauty, body, movement, and self-care rituals.',
@@ -30,26 +35,30 @@ export default function Landing() {
       <nav id="landing-navigation" className={open ? 'landing-nav landing-nav--open' : 'landing-nav'} aria-label="Landing navigation">
         <a href="#experience" onClick={close}>Experience</a>
         <a href="#services" onClick={close}>Services</a>
-        <Link to="/waitlist" onClick={close}>Waitlist</Link>
+        <Link to="/waitlist" state={LANDING_RETURN_STATE} onClick={close}>Waitlist</Link>
         <Button to={getStartedPath} size="sm" onClick={close}>{getStartedLabel} <ArrowRight size={15} /></Button>
       </nav>
     </header>
 
     <main>
       <section className="landing-hero" aria-labelledby="landing-title">
-        <div className="landing-hero__image">
-          <ImagePlaceholder src={imagePaths.home.heroSecondary} fallbackSrc={imagePaths.home.wellnessSectionWide} alt="Serene Allay House treatment room" loading="eager" fetchPriority="high" width="1448" height="1086" />
+        <div className="landing-hero__visual">
+          <LandingHeroCarousel categories={serviceCategories} />
+          <div className="landing-hero__stamp" aria-hidden="true">
+            <span className="landing-hero__stamp-percent">15%</span>
+            <span className="landing-hero__stamp-copy">OFF<br />AT LAUNCH</span>
+          </div>
         </div>
         <div className="landing-hero__content reveal">
-          <span className="eyebrow">Allay House</span>
-          <h1 id="landing-title">Wellness, beauty and restoration under one house.</h1>
-          <p>Allay House brings spa rituals, movement, skin, hair, nails, lashes, and body care into one warm, refined experience for people who want their care to feel considered from start to finish.</p>
+          <span className="eyebrow">Allay House &middot; Launching soon</span>
+          <h1 id="landing-title">Your Allay House experience is almost here.</h1>
+          <p>Join the waitlist to receive first access to our launch, complete service details, final pricing, and an exclusive 15% discount code delivered to your email.</p>
           <div className="landing-offer" aria-label="Waitlist launch offer">
-            <strong>Join the waitlist and receive 15% off your first booking when Allay House launches.</strong>
+            <strong>Waitlist exclusive: 15% off your first booking.</strong>
             <span>Your launch code will be sent by email when bookings officially open.</span>
           </div>
           <div className="landing-actions">
-            <Button to="/waitlist">Join Waitlist <ArrowRight size={16} /></Button>
+            <Button to="/waitlist" state={LANDING_RETURN_STATE}>Claim My 15% Launch Discount <ArrowRight size={16} /></Button>
             <Link className="text-link" to={getStartedPath}>{getStartedLabel} <ChevronRight size={16} /></Link>
           </div>
         </div>
@@ -71,7 +80,7 @@ export default function Landing() {
         </div>
         <div className="landing-service-list">
           {serviceCategories.map((category, index) => (
-            <Link to={waitlistCategoryPath(category.slug)} className="landing-service-row" key={category.id}>
+            <Link to={waitlistCategoryPath(category.slug)} state={LANDING_RETURN_STATE} className="landing-service-row" key={category.id}>
               <span>{String(index + 1).padStart(2, '0')}</span>
               <strong>{category.name}</strong>
               <p>{category.description}</p>
@@ -106,10 +115,10 @@ export default function Landing() {
 
       <section className="landing-waitlist">
         <span className="eyebrow">Private waitlist</span>
-        <h2>Stay close to the house.</h2>
-        <p>Join the existing Allay House waitlist for launch access, service updates, and a 15% first-booking discount sent by email when bookings open. This does not book an appointment; it simply keeps you first in line.</p>
+        <h2>Be first to experience Allay House.</h2>
+        <p>Our final service pricing is still being carefully prepared. Join the waitlist to receive complete launch details, final pricing, priority updates, and an exclusive 15% discount code when Allay House officially launches. Joining is free and does not book an appointment.</p>
         <div className="landing-actions landing-actions--center">
-          <Button to="/waitlist">Join Waitlist <ArrowRight size={16} /></Button>
+          <Button to="/waitlist" state={LANDING_RETURN_STATE}>Join the Waitlist &amp; Unlock 15% Off <ArrowRight size={16} /></Button>
           <Button to={getStartedPath} variant="outline">{getStartedLabel}</Button>
         </div>
       </section>
@@ -123,8 +132,12 @@ export default function Landing() {
           <Link to="/about">Our house</Link>
           <Link to="/contact">Contact</Link>
           <a href="tel:+2347012119202">+234 701 211 9202</a>
-          <a href="https://instagram.com" aria-label="Instagram"><Instagram size={14} /> Instagram</a>
         </nav>
+        <div className="landing-footer__social">
+          <a href={siteSocialLinks.instagram.url} target="_blank" rel="noopener noreferrer" aria-label={siteSocialLinks.instagram.accessibleLabel}><InstagramIcon size={16} /></a>
+          <a href={siteSocialLinks.tiktok.url} target="_blank" rel="noopener noreferrer" aria-label={siteSocialLinks.tiktok.accessibleLabel}><TikTokIcon size={15} /></a>
+          <a href={siteSocialLinks.googleMaps.url} target="_blank" rel="noopener noreferrer" aria-label={siteSocialLinks.googleMaps.accessibleLabel}><MapPin size={16} /></a>
+        </div>
       </div>
       <div className="landing-footer__bottom">
         <span className="landing-footer__address">14 Babatunde Kuboye street, Lekki Phase 1, Lagos state, Nigeria</span>

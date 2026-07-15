@@ -1,7 +1,7 @@
 import { ArrowLeft, Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import Logo from '../../components/common/Logo'
 import Button from '../../components/common/Button'
 import WaitlistServiceSelector from '../../components/common/WaitlistServiceSelector'
@@ -15,8 +15,14 @@ import { getServices } from '../../services/servicesApi'
 import { joinWaitlist } from '../../services/waitlistApi'
 import { imagePaths } from '../../utils/imagePaths'
 
-function WaitlistHeader() {
-  return <div className="waitlist-page__top"><Logo /><div className="waitlist-page__nav"><Link to="/"><ArrowLeft size={15} /> Return home</Link></div></div>
+// The visitor may have arrived from the pre-launch landing page (which
+// passes { from: '/landing' } via router state) or from any other entry
+// point (a direct link, a service card, etc.), which should keep returning
+// home. Router state is the safe source here since it can't be spoofed by
+// browser history the way a blind history.back() could send someone to an
+// unrelated page.
+function WaitlistHeader({ returnPath, returnLabel }) {
+  return <div className="waitlist-page__top"><Logo /><div className="waitlist-page__nav"><Link to={returnPath}><ArrowLeft size={15} /> {returnLabel}</Link></div></div>
 }
 
 function servicesFromQuery(services, searchParams) {
@@ -39,7 +45,11 @@ function serviceKeys(service = {}) {
 }
 
 export default function Waitlist() {
-  const { waitlistEnabled, isLoading: siteModeLoading } = useSiteMode()
+  const { isLive, waitlistEnabled, isLoading: siteModeLoading } = useSiteMode()
+  const location = useLocation()
+  const fromLanding = location.state?.from === '/landing'
+  const returnPath = fromLanding ? '/landing' : '/'
+  const returnLabel = fromLanding ? 'Back' : 'Return home'
   const [searchParams] = useSearchParams()
   const [services, setServices] = useState(placeholderServices)
   const [servicesLoading, setServicesLoading] = useState(true)
@@ -105,7 +115,7 @@ export default function Waitlist() {
   const backgroundStyle = { '--waitlist-page-image': `url(${imagePaths.waitlist.hero})` }
 
   return <main className="waitlist-page" style={backgroundStyle}>
-    <WaitlistHeader />
+    <WaitlistHeader returnPath={returnPath} returnLabel={returnLabel} />
     {!siteModeLoading && !waitlistEnabled
       ? <section className="waitlist-success"><span><Check /></span><small className="eyebrow">Waitlist closed</small><h1>Our private waitlist is currently closed.</h1><p>Please watch out for future openings.</p><Button to="/">Return to Allay House</Button></section>
       : submitted
@@ -124,7 +134,8 @@ export default function Waitlist() {
               <label>Services of interest</label>
               {servicesLoading
                 ? <div className="waitlist-service-grid" aria-label="Loading services">{Array.from({ length: 5 }).map((_, index) => <div className="waitlist-service-skeleton" key={index} aria-hidden="true"><span /><div><i /><b /></div></div>)}</div>
-                : <WaitlistServiceSelector services={services} selected={selected} onChange={(nextSelected) => { markStarted(); setSelected(nextSelected) }} />}
+                : <WaitlistServiceSelector services={services} selected={selected} isLive={isLive} onChange={(nextSelected) => { markStarted(); setSelected(nextSelected) }} />}
+              {!isLive && <p className="waitlist-price-note">Pricing will be revealed at launch. Join the waitlist to receive final pricing and your exclusive 15% launch discount.</p>}
             </div>
             <Textarea id="waitlist-note" name="note" label="Anything you would like us to know? (optional)" value={form.note} onChange={update('note')} />
             <Button type="submit" size="lg" loading={submitting}>Join the private waitlist</Button>
