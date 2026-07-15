@@ -14,6 +14,24 @@ import { imagePaths } from '../../utils/imagePaths'
 
 const LANDING_RETURN_STATE = { from: '/landing' }
 
+// Presentational only — the hero text reel communicates the range of
+// services without requiring a matching image for each one (there are only
+// four approved hero images; see LandingHeroCarousel).
+const LANDING_HERO_SERVICE_NAMES = [
+  'Allay Spa',
+  'Allay Pilates',
+  'Allay Nail Studio',
+  'Allay Lash Studio',
+  'Allay Salon',
+  'Facials',
+  'Massage',
+  'Sauna',
+  'Headspa',
+  'Hair Styling',
+  'Braiding',
+  'Premium Human Hair Wigs',
+]
+
 const experienceNotes = [
   'Thoughtful care across beauty, body, movement, and self-care rituals.',
   'A calm environment designed for unhurried appointments and polished details.',
@@ -43,7 +61,7 @@ export default function Landing() {
     <main>
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="landing-hero__visual">
-          <LandingHeroCarousel categories={serviceCategories} />
+          <LandingHeroCarousel serviceNames={LANDING_HERO_SERVICE_NAMES} />
           <div className="landing-hero__stamp" aria-hidden="true">
             <span className="landing-hero__stamp-percent">15%</span>
             <span className="landing-hero__stamp-copy">OFF<br />AT LAUNCH</span>
@@ -58,7 +76,7 @@ export default function Landing() {
             <span>Your launch code will be sent by email when bookings officially open.</span>
           </div>
           <div className="landing-actions">
-            <Button to="/waitlist" state={LANDING_RETURN_STATE}>Claim My 15% Launch Discount <ArrowRight size={16} /></Button>
+            <Button to="/waitlist" state={LANDING_RETURN_STATE}>Join the Waitlist &amp; Unlock 15% Off <ArrowRight size={16} /></Button>
             <Link className="text-link" to={getStartedPath}>{getStartedLabel} <ChevronRight size={16} /></Link>
           </div>
         </div>
