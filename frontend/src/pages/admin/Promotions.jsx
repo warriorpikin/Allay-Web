@@ -22,7 +22,7 @@ import {
   updateAdminPromotion,
   uploadPromotionImage,
 } from '../../services/adminApi'
-import { getErrorMessage } from '../../utils/getErrorMessage'
+import { getErrorMessage, logFetchError } from '../../utils/getErrorMessage'
 import { validateImageFile } from '../../utils/imageValidation'
 
 const ctaActionOptions = [
@@ -227,7 +227,10 @@ export default function Promotions() {
     setLoading(true)
     getAdminPromotions()
       .then((data) => setPromotions(data.promotions || []))
-      .catch(() => toast.error('Could not load promotions.'))
+      .catch((error) => {
+        logFetchError('Admin promotions fetch failed', error)
+        toast.error('Could not load promotions.')
+      })
       .finally(() => setLoading(false))
   }
 

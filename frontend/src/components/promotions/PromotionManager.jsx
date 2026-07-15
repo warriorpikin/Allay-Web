@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getActivePromotions } from '../../services/promotionApi'
+import { logFetchError } from '../../utils/getErrorMessage'
 import { isInterruptionUnsafe, pickPromotion } from '../../utils/promotionEngine'
 import { recordDismissal, recordImpression, recordVisitAndGetContext } from '../../utils/promotionStorage'
 import PromotionModal from './PromotionModal'
@@ -31,7 +32,10 @@ export default function PromotionManager() {
 
   useEffect(() => {
     if (isAdminRoute) return
-    getActivePromotions().then(setPromotions).catch(() => setPromotions([]))
+    getActivePromotions().then(setPromotions).catch((error) => {
+      logFetchError('Active promotion fetch failed', error)
+      setPromotions([])
+    })
   }, [isAdminRoute])
 
   useEffect(() => {
