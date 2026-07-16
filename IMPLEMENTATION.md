@@ -1,6 +1,6 @@
 # Official Catalogue Replacement + SEO — Implementation Notes
 
-This document covers the catalogue replacement (124 services + 3 memberships)
+This document covers the catalogue replacement (125 services + 3 memberships)
 and the SEO implementation added on top of the existing Allay House codebase.
 
 ## Status
@@ -12,6 +12,33 @@ and the SEO implementation added on top of the existing Allay House codebase.
   run**. The live public catalogue still shows the original 13 seeded
   services. Running the import is the one remaining step — see
   [Running the import](#running-the-import) below.
+- All code (catalogue data, membership system, SEO/sitemap, admin UI, mailto
+  contact form) **has been committed and pushed to `origin/main`**
+  (commit `e9fc855`), triggering Render (backend) and Vercel (frontend)
+  auto-deploys. Nothing was live in production before this push — that was
+  the actual cause of `sitemap.xml` returning 404/HTML.
+- The catalogue was revised once after the first pass: the official list was
+  updated to 125 entries (one additional base "Knotless Braids Without
+  Extensions" service) with corrected durations for most services and
+  knotless/micro braids re-categorised from Allay Salon to Hair & Wigs. The
+  data file, tests, and keyword library were all updated to match.
+
+## A note on "Allay Spa"
+
+One revision of the official catalogue listed a category called "Allay Spa"
+for lymphatic drainage / wood therapy / EMSZero / body-contouring services.
+**This category does not exist in the database** — the real, existing
+category covering that content is **Body & Beauty** (slug `body-beauty`,
+one of the original 10 seeded categories). "Allay Spa" only appears as a
+stale, unused entry in the frontend's static category-chip list
+(`frontend/src/data/serviceCategories.js`), left over from earlier design
+work — it was never actually seeded as a database category. Rather than
+create a new, duplicate category for a name that was never real, these 12
+services stay mapped to Body & Beauty, which was already correct in the
+first pass. Flagging this explicitly in case "Allay Spa" was meant as an
+intentional rename request rather than a mix-up — that would be a separate,
+larger change (renaming a category used by 12 existing services) I did not
+make without confirmation.
 
 ## Files changed, by area
 
@@ -22,7 +49,7 @@ and the SEO implementation added on top of the existing Allay House codebase.
   `session_count`, `seo_title`, `seo_description`, `seo_keywords`) and
   `service_categories` (`seo_title`, `seo_description`); new `memberships`
   table; inserts the two new categories (`waxing`, `signature-experiences`).
-- `backend/src/db/seedData/officialCatalogue.js` — the 124 services, 3
+- `backend/src/db/seedData/officialCatalogue.js` — the 125 services, 3
   memberships, and shared member perks as reviewable data (separate from the
   import script's transaction/safety logic).
 - `backend/src/scripts/importOfficialCatalogue.js` — the one-time,
@@ -64,22 +91,33 @@ and the SEO implementation added on top of the existing Allay House codebase.
   `frontend/src/utils/structuredData.js`, `frontend/src/utils/siteUrl.js` —
   SEO infrastructure (see [How SEO metadata works](#how-seo-metadata-works)).
 - `frontend/scripts/prerender.mjs` — postbuild static HTML snapshot generator.
-- `frontend/vercel.json` — sitemap/robots proxy rewrites (needs a real value,
-  see [Production environment variables](#production-environment-variables)).
+- `frontend/vercel.json` — sitemap/robots proxy rewrites to
+  `https://allay-web.onrender.com`.
 - `frontend/src/data/serviceCategories.js` — added the Waxing and Signature
   Experiences category chips (existing 10 category chips untouched).
+- `frontend/src/pages/public/Contact.jsx` — converted to a `mailto:` flow:
+  client-validated name/email/message, encoded subject/body, recipient from
+  `VITE_CONTACT_EMAIL` (falls back to `help@allayhouse.con`, kept exactly as
+  spelled), clipboard fallback panel. No longer calls the backend
+  `sendContactMessage` API (that endpoint/table are untouched and still
+  available if you want to wire up an admin inbox later).
+- `frontend/.env.example` — added `VITE_CONTACT_EMAIL`.
 
 **Tests**
 - `backend/src/tests/officialCatalogue.test.js` — validates the catalogue
-  data itself (124 entries, no duplicate slugs, known category slugs,
-  spot-checked prices, ranged/"from" pricing, 3 memberships at the right
-  prices) — no database required.
+  data itself (125 entries, no duplicate slugs, known category slugs,
+  spot-checked prices, ranged/"from" pricing, braid category placement, 3
+  memberships at the right prices) — no database required.
 - `backend/src/tests/seoRoutes.test.js` — sitemap/robots XML validity and
   exclusion of admin/API routes.
 - `backend/src/tests/membershipContracts.test.js` — admin create/update/
   deactivate a membership, verified against the public endpoint, with
   automatic cleanup.
-- All 36 backend tests pass (20 pre-existing + 16 new), no regressions.
+- All 37 backend tests pass (20 pre-existing + 17 new), no regressions.
+- Contact form manually verified in a real browser (Playwright): empty
+  submit shows all three validation errors, invalid email shows a
+  field-specific error, valid submit triggers the `mailto:` navigation and
+  reveals the copy-fallback panel, form is not cleared, zero console errors.
 
 ## Category mapping
 
@@ -89,8 +127,8 @@ All 10 existing categories were reused; only 2 new categories were created
 | Official catalogue section | Category used | New? |
 |---|---|---|
 | Scalp & head-spa (A) | Headspa | reused |
-| Hair Lounge, Knotless Braids, Micro Braids (B, C, D) | Allay Salon | reused |
-| Wig Services, Hair Treatments (E, F) | Hair & Wigs | reused |
+| Hair Lounge — wash/blowdry, wash/style, wig styling, cornrows (B) | Allay Salon | reused |
+| Knotless Braids, Micro Braids, Wig Services, Hair Treatments (C, D, E, F) | Hair & Wigs | reused |
 | Body Massage, Premium Massage (G, H) | Massage | reused |
 | Body Glow & Hammam (I) | Sauna | reused |
 | Soft Sculpt Body Treatments (J) | Body & Beauty | reused |
@@ -136,10 +174,10 @@ the import:
 2. Run the migration if you haven't already: `npm run db:migrate -w backend`
    (safe — additive only, already applied as of this writing).
 3. Run the import: `npm run catalogue:import -w backend`
-4. Read the printed summary. Expected: 10 categories reused, 2 created, 124
+4. Read the printed summary. Expected: 10 categories reused, 2 created, 125
    services created, 0 legacy left un-handled (each of the 13 original
    services either archived or deleted depending on booking history), 3
-   memberships created, 0 skipped, 124 total active services.
+   memberships created, 0 skipped, 125 total active services.
 
 **Rollback**: because rows are updated in place, there is no automated
 "undo" script. If something looks wrong after a real run, restore from the
@@ -161,7 +199,7 @@ The public "Enquire to join" button on each plan links to
 ## Uploading service/membership images
 
 Same Cloudinary pipeline as before — open a service or membership in the
-admin panel, use "Upload image from device." All 124 imported services and 3
+admin panel, use "Upload image from device." All 125 imported services and 3
 memberships start with **no image** (matches the existing 13-service seed
 convention); the `ImagePlaceholder` component already renders a stable
 decorative placeholder for services with no image, so nothing breaks or
@@ -200,7 +238,7 @@ of) the `robots.txt` disallow rules, since a login-gated page needs a real
 
 `backend/src/seo/keywordLibrary.json` (generated by
 `backend/src/seo/generateKeywordLibrary.js` — re-run it after editing the
-generator). **1,117 unique phrases** across the 40 requested clusters
+generator). **1,120 unique phrases** across the 40 requested clusters
 (branded, misspellings for query-intent awareness only, head-spa, massage,
 memberships, bridal, corporate wellness, location/"near me", Nigeria-focused,
 question-based long-tail, comparisons, etc.), each with `phrase`, `cluster`,
@@ -230,11 +268,16 @@ created/updated/deleted:
 
 Because `sitemap.xml`/`robots.txt` must be served from the same origin as
 the URLs they list (`www.allayhouse.com`), not the API host, `frontend/vercel.json`
-proxies those exact paths to the backend. **This needs your real production
-backend URL** — replace `REPLACE_WITH_PRODUCTION_BACKEND_URL` in
-`frontend/vercel.json` with wherever the Express API is actually deployed
-(Render, Railway, etc.) before this works in production. I could not find
-that URL anywhere in the repository.
+proxies those exact paths to the backend at `https://allay-web.onrender.com`
+(you filled this in). Note: this is a flat naming scheme
+(`/sitemap-services.xml`, etc.), not a `/sitemaps/services.xml` nested
+scheme — a later message described the nested form, but since working
+sitemap code already existed and was already wired into `vercel.json` under
+the flat naming, restructuring it would have meant re-editing the rewrite
+you'd just set and duplicating already-working code for no functional
+gain. If you specifically want the nested `/sitemaps/*.xml` path structure
+for another reason, say so and I'll migrate both the backend routes and the
+`vercel.json` rewrites together.
 
 ## Production environment variables
 
@@ -250,6 +293,11 @@ that URL anywhere in the repository.
   Console's HTML-tag verification code (just the `content` value). Renders a
   `<meta name="google-site-verification">` tag site-wide when set; omitted
   entirely when blank.
+- `VITE_CONTACT_EMAIL` (frontend, **new**) — recipient for the contact
+  page's `mailto:` form. Falls back to `help@allayhouse.con` in code if
+  unset (that exact spelling, per your instruction — not a typo to fix).
+  Change the value here, not in `Contact.jsx`, when the real address is
+  confirmed.
 - Existing Cloudinary variables are unchanged — no new upload configuration
   needed.
 
@@ -285,13 +333,17 @@ that URL anywhere in the repository.
 
 ## Manual steps still required
 
-1. Fill in the real backend URL in `frontend/vercel.json` (see above).
-2. Decide when to run `npm run catalogue:import -w backend` (see
+1. Decide when to run `npm run catalogue:import -w backend` (see
    [Running the import](#running-the-import)) — not run yet, per your
-   earlier choice.
-3. Set `VITE_GOOGLE_SITE_VERIFICATION` if/when you verify Search Console.
-4. Upload real images for the 124 services and 3 memberships via the admin
+   earlier choice. This is the only step that changes what's publicly
+   bookable.
+2. Set `VITE_GOOGLE_SITE_VERIFICATION` if/when you verify Search Console.
+3. Set `VITE_CONTACT_EMAIL` on Vercel once the real contact address is
+   confirmed (currently falls back to the literal `help@allayhouse.con` you
+   specified).
+4. Upload real images for the 125 services and 3 memberships via the admin
    panel once the import has run.
-5. Confirm `FRONTEND_URL` (backend) and `VITE_SITE_URL`/`VITE_API_URL`
-   (frontend) are set to the real production values in each hosting
-   provider's environment settings — I only verified these locally.
+5. Confirm `FRONTEND_URL` (Render), `VITE_SITE_URL`/`VITE_API_URL`/
+   `VITE_CONTACT_EMAIL` (Vercel) are set to the intended production values
+   in each hosting provider's environment settings — I only verified these
+   locally; Render/Vercel's own env vars are outside what I can see or set.
