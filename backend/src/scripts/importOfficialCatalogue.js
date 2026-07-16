@@ -118,7 +118,14 @@ export async function run() {
     const distinctServiceCategorySlugs = new Set(officialServices.map((service) => service.categorySlug))
     summary.categoriesReused = [...distinctServiceCategorySlugs].filter((slug) => !newCategories.some((c) => c.slug === slug)).length
 
-    // 2. Upsert the 124 official catalogue services by slug.
+    // A handful of official-catalogue names (e.g. "Deep Tissue Massage")
+    // happen to slugify to the same value as one of the 13 legacy services.
+    // When that happens the slug now belongs to a live, current, official
+    // service — step 3 below must never retire it just because it also
+    // appears in legacySeededServiceSlugs.
+    const officialSlugs = new Set(officialServices.map((service) => slugify(service.name)))
+
+    // 2. Upsert the 125 official catalogue services by slug.
     for (const service of officialServices) {
       const categoryId = categoryIdBySlug.get(service.categorySlug)
       if (!categoryId) {
@@ -177,7 +184,13 @@ export async function run() {
 
     // 3. Retire the 13 originally-seeded services — archive if referenced by
     // booking/waitlist/discount/capacity history, otherwise hard-delete.
+    // Skip any slug that the official catalogue itself re-uses (see note
+    // above) — that row was just upserted with current, active content.
     for (const slug of legacySeededServiceSlugs) {
+      if (officialSlugs.has(slug)) {
+        summary.legacyAlreadyHandled += 1
+        continue
+      }
       const existing = await client.query('SELECT id, is_active FROM services WHERE slug = $1', [slug])
       if (!existing.rows[0]) {
         summary.legacyAlreadyHandled += 1

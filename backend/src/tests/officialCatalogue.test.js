@@ -40,6 +40,19 @@ test('legacy seeded slugs list has exactly the 13 originally-seeded services', (
   assert.equal(new Set(legacySeededServiceSlugs).size, 13)
 })
 
+test('legacy/official slug collisions are known and match the import script\'s exclusion list', () => {
+  // "Deep Tissue Massage" in the official catalogue slugifies to the same
+  // value as the old legacy service of the same name. importOfficialCatalogue.js
+  // must treat that slug as a live official service, never retire it as
+  // legacy — that bug shipped once already (the service was silently
+  // archived after being updated). If this assertion ever picks up a new
+  // collision, confirm the script's `officialSlugs` exclusion in step 3
+  // still covers it before running the import.
+  const officialSlugs = new Set(officialServices.map((service) => slugify(service.name)))
+  const collisions = legacySeededServiceSlugs.filter((slug) => officialSlugs.has(slug))
+  assert.deepEqual(collisions, ['deep-tissue-massage'])
+})
+
 test('spot-check official prices match the supplied catalogue', () => {
   const bySlug = new Map(officialServices.map((service) => [slugify(service.name), service]))
   const expected = {
