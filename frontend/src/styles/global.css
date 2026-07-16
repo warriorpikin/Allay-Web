@@ -126,6 +126,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--color-primary-ho
 .section-header--centered p { margin-inline: auto; }
 
 .form-card, .card { padding: clamp(24px, 4vw, 40px); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-card); }
+.form-card__note { margin: 14px 0 0; color: var(--color-text-soft); font-size: 11px; line-height: 1.6; }
+.contact-fallback { margin-top: 18px; padding: clamp(20px, 3vw, 28px); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-cream-glass); }
+.contact-fallback p { margin: 0 0 14px; color: var(--color-text-soft); font-size: 12px; line-height: 1.6; }
+.contact-fallback__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.contact-fallback__address { margin: 14px 0 0 !important; color: var(--color-primary) !important; font-weight: 600; }
 .form-group { display: flex; flex-direction: column; gap: 9px; margin-bottom: 18px; }
 .form-group > label, .checkbox > label { font-size: 10px; font-weight: 600; letter-spacing: 0.11em; text-transform: uppercase; }
 .form-group small { color: var(--color-text-soft); font-size: 10px; line-height: 1.5; }

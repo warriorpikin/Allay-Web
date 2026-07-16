@@ -1,6 +1,12 @@
 {
   "rewrites": [
+    { "source": "/robots.txt", "destination": "https://allay-web.onrender.com/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "https://allay-web.onrender.com/sitemap.xml" },
+    { "source": "/sitemap-pages.xml", "destination": "https://allay-web.onrender.com/sitemap-pages.xml" },
+    { "source": "/sitemap-services.xml", "destination": "https://allay-web.onrender.com/sitemap-services.xml" },
+    { "source": "/sitemap-categories.xml", "destination": "https://allay-web.onrender.com/sitemap-categories.xml" },
+    { "source": "/sitemap-memberships.xml", "destination": "https://allay-web.onrender.com/sitemap-memberships.xml" },
+    { "source": "/sitemap-images.xml", "destination": "https://allay-web.onrender.com/sitemap-images.xml" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
-

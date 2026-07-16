@@ -6,6 +6,7 @@ import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import TikTokIcon from '../../components/common/TikTokIcon'
 import LandingHeroCarousel from '../../components/landing/LandingHeroCarousel'
+import Seo from '../../components/common/Seo'
 import { getCategoryImage } from '../../data/allayImages'
 import serviceCategories from '../../data/serviceCategories'
 import { siteSocialLinks } from '../../data/socialLinks'
@@ -47,6 +48,7 @@ export default function Landing() {
   const waitlistCategoryPath = (slug) => `/waitlist?category=${encodeURIComponent(slug)}`
 
   return <div className="landing-page">
+    <Seo title="Allay House | Beauty, Wellness & Movement in Lagos" description="Allay House is opening in Lagos — a refined sanctuary for beauty, wellness, and movement. Join the waitlist for early access." path="/landing" />
     <header className="landing-header">
       <BrandLogo to="/landing" />
       <button className="landing-menu" type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle landing navigation" aria-controls="landing-navigation" aria-expanded={open}>{open ? <X /> : <Menu />}</button>

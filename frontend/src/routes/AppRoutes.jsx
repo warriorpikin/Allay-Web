@@ -11,6 +11,7 @@ import Customers from '../pages/admin/Customers'
 import AdminEmails from '../pages/admin/AdminEmails'
 import Dashboard from '../pages/admin/Dashboard'
 import EmailLogs from '../pages/admin/EmailLogs'
+import MembershipsManager from '../pages/admin/MembershipsManager'
 import Payments from '../pages/admin/Payments'
 import Promotions from '../pages/admin/Promotions'
 import ServicesManager from '../pages/admin/ServicesManager'
@@ -26,6 +27,8 @@ import BookingSuccess from '../pages/public/BookingSuccess'
 import Contact from '../pages/public/Contact'
 import Home from '../pages/public/Home'
 import Landing from '../pages/public/Landing'
+import MembershipDetail from '../pages/public/MembershipDetail'
+import Memberships from '../pages/public/Memberships'
 import NotFound from '../pages/public/NotFound'
 import PrivacyPolicy from '../pages/public/PrivacyPolicy'
 import ServiceDetail from '../pages/public/ServiceDetail'
@@ -39,7 +42,10 @@ export default function AppRoutes() {
     <Route element={<PublicLayout />}>
       <Route index element={<Home />} />
       <Route path="services" element={<Services />} />
+      <Route path="services/category/:categorySlug" element={<Services />} />
       <Route path="services/:slug" element={<ServiceDetail />} />
+      <Route path="memberships" element={<Memberships />} />
+      <Route path="memberships/:slug" element={<MembershipDetail />} />
       <Route path="book" element={<Booking />} />
       <Route path="booking-success" element={<BookingSuccess />} />
       <Route path="about" element={<About />} />
@@ -66,6 +72,7 @@ export default function AppRoutes() {
         <Route path="users" element={<Users />} />
         <Route path="customers" element={<Customers />} />
         <Route path="services" element={<ServicesManager />} />
+        <Route path="memberships" element={<MembershipsManager />} />
         <Route path="testimonials" element={<Testimonials />} />
         <Route path="promotions" element={<Promotions />} />
         <Route path="availability" element={<Availability />} />

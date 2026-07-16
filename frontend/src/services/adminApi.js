@@ -6,6 +6,11 @@ function normalizeService(service = {}) {
   return { ...service, imageUrl, image: imageUrl }
 }
 
+function normalizeMembership(membership = {}) {
+  const imageUrl = resolveImageUrl(membership.imageUrl || membership.image || '')
+  return { ...membership, imageUrl, image: imageUrl }
+}
+
 function normalizeTestimonial(testimonial = {}) {
   const imageUrl = resolveImageUrl(testimonial.imageUrl || testimonial.profileImageUrl || '')
   return { ...testimonial, imageUrl, profileImageUrl: imageUrl }
@@ -40,11 +45,16 @@ export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ 
 export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(({ data }) => data)
 export const getAdminCustomers = (params) => api.get('/admin/customers', { params }).then(({ data }) => data)
 export const getAdminCustomer = (id) => api.get(`/admin/customers/${id}`).then(({ data }) => data)
-export const getAdminServices = () => api.get('/admin/services').then(({ data }) => ({ ...data, services: (data.services || []).map(normalizeService) }))
+export const getAdminServices = (params = {}) => api.get('/admin/services', { params }).then(({ data }) => ({ ...data, services: (data.services || []).map(normalizeService) }))
 export const getAdminServiceCategories = () => api.get('/admin/services/meta/categories').then(({ data }) => data)
 export const createAdminService = (data) => api.post('/admin/services', data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
 export const updateAdminService = (id, data) => api.patch(`/admin/services/${id}`, data).then(({ data: response }) => ({ ...response, service: normalizeService(response.service) }))
 export const deleteAdminService = (id) => api.delete(`/admin/services/${id}`)
+
+export const getAdminMemberships = () => api.get('/admin/memberships').then(({ data }) => ({ ...data, memberships: (data.memberships || []).map(normalizeMembership) }))
+export const createAdminMembership = (data) => api.post('/admin/memberships', data).then(({ data: response }) => ({ ...response, membership: normalizeMembership(response.membership) }))
+export const updateAdminMembership = (id, data) => api.patch(`/admin/memberships/${id}`, data).then(({ data: response }) => ({ ...response, membership: normalizeMembership(response.membership) }))
+export const deleteAdminMembership = (id) => api.delete(`/admin/memberships/${id}`)
 export const getAdminTestimonials = () => api.get('/admin/testimonials').then(({ data }) => ({ ...data, testimonials: (data.testimonials || []).map(normalizeTestimonial) }))
 export const createAdminTestimonial = (data) => api.post('/admin/testimonials', data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))
 export const updateAdminTestimonial = (id, data) => api.patch(`/admin/testimonials/${id}`, data).then(({ data: response }) => ({ ...response, testimonial: normalizeTestimonial(response.testimonial) }))

@@ -187,6 +187,8 @@ td a { color: var(--color-primary-hover); font-weight: 600; }
 .promo-image-grid__item button { position: absolute; top: 4px; right: 4px; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--color-espresso-overlay); color: var(--color-on-dark); }
 .promo-image-grid__item small { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 6px; background: var(--color-espresso-overlay); color: var(--color-on-dark); font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
 
+.admin-form-fieldset { margin: 4px 0 18px; padding: 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); }
+.admin-form-fieldset legend { padding: 0 6px; color: var(--color-text-soft); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .admin-toggle-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 2px 0 18px; }
 .admin-toggle-pair label { display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-cream-glass); color: var(--color-text); font-size: 11px; }
 .admin-toggle-pair input { width: 18px; height: 18px; accent-color: var(--color-primary); }

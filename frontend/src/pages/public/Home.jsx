@@ -5,12 +5,14 @@ import ServiceHeroCarousel from '../../components/home/ServiceHeroCarousel'
 import Button from '../../components/common/Button'
 import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import SectionHeader from '../../components/common/SectionHeader'
+import Seo from '../../components/common/Seo'
 import StarRating from '../../components/common/StarRating'
 import { getCategoryImage } from '../../data/allayImages'
 import { buildDivisionSlides } from '../../data/serviceDivisions'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getServices, getTestimonials } from '../../services/servicesApi'
 import { imagePaths } from '../../utils/imagePaths'
+import { buildLocalBusinessJsonLd } from '../../utils/structuredData'
 
 // The "Explore the House" grid duplicated the same category imagery and CTAs
 // now shown in the hero carousel above it. Disabled, not deleted — its
@@ -112,6 +114,12 @@ export default function Home() {
   const divisionSlides = useMemo(() => buildDivisionSlides(services), [services])
 
   return <>
+    <Seo
+      title="Allay House | Beauty, Wellness & Movement in Lagos"
+      description="Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, lashes, waxing, and reformer Pilates."
+      path="/"
+      jsonLd={buildLocalBusinessJsonLd()}
+    />
     <section className="home-hero">
       <div className="home-hero__content reveal">
         <span className="eyebrow">Beauty / Wellness</span>

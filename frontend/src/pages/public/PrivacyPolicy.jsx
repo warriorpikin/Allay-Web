@@ -1,3 +1,6 @@
+import Breadcrumbs from '../../components/common/Breadcrumbs'
+import Seo from '../../components/common/Seo'
+
 const updated = 'July 10, 2026'
 
 export default function PrivacyPolicy() {
@@ -6,7 +9,10 @@ export default function PrivacyPolicy() {
     window.dispatchEvent(new Event('allay:analytics-consent-reset'))
   }
 
-  return <section className="legal-page section">
+  return <>
+  <Seo title="Privacy Policy | Allay House" description="How Allay House collects, uses, and protects your personal information." path="/privacy-policy" />
+  <Breadcrumbs items={[{ label: 'Home', path: '/' }, { label: 'Privacy Policy', path: '/privacy-policy' }]} />
+  <section className="legal-page section">
     <span className="eyebrow">Privacy Policy</span>
     <h1>How Allay House handles your information.</h1>
     <p className="legal-page__updated">Last updated: {updated}</p>
@@ -38,4 +44,5 @@ export default function PrivacyPolicy() {
       <p>For privacy questions, contact Allay House through the contact page or the details listed in the website footer.</p>
     </div>
   </section>
+  </>
 }

@@ -1,7 +1,13 @@
+import Breadcrumbs from '../../components/common/Breadcrumbs'
+import Seo from '../../components/common/Seo'
+
 const updated = 'July 10, 2026'
 
 export default function TermsOfUse() {
-  return <section className="legal-page section">
+  return <>
+  <Seo title="Terms of Use | Allay House" description="Terms for using the Allay House website and booking services." path="/terms-of-use" />
+  <Breadcrumbs items={[{ label: 'Home', path: '/' }, { label: 'Terms of Use', path: '/terms-of-use' }]} />
+  <section className="legal-page section">
     <span className="eyebrow">Terms of Use</span>
     <h1>Using the Allay House website and booking services.</h1>
     <p className="legal-page__updated">Last updated: {updated}</p>
@@ -34,4 +40,5 @@ export default function TermsOfUse() {
       <p>Questions about these terms can be sent through the contact page or the details shown in the footer.</p>
     </div>
   </section>
+  </>
 }

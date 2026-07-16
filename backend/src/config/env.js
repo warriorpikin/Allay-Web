@@ -113,4 +113,10 @@ export const env = {
   ALLAY_SERVICES_URL: resolveServicesUrl(result.data),
   ALLAY_EMAIL_BACKGROUND_URL: resolveEmailBackgroundUrl(result.data),
   ALLAY_EMAIL_LOGO_URL: resolveEmailLogoUrl(result.data),
+  // Canonical public site origin used by sitemap/robots/structured-data
+  // generation (seoRoutes.js). FRONTEND_URL is already the project's single
+  // source of truth for the public site origin, so this is an alias, not a
+  // second variable to keep in sync — set FRONTEND_URL to the real production
+  // domain (e.g. https://www.allayhouse.com) in the production environment.
+  PUBLIC_SITE_URL: trimTrailingSlash(result.data.FRONTEND_URL),
 }

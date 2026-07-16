@@ -15,6 +15,7 @@ import adminBookingRoutes from './routes/adminBookingRoutes.js'
 import adminCustomerRoutes from './routes/adminCustomerRoutes.js'
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js'
 import adminEmailRoutes from './routes/adminEmailRoutes.js'
+import adminMembershipRoutes from './routes/adminMembershipRoutes.js'
 import adminPromotionRoutes from './routes/adminPromotionRoutes.js'
 import adminServiceRoutes from './routes/adminServiceRoutes.js'
 import adminSettingsRoutes from './routes/adminSettingsRoutes.js'
@@ -28,7 +29,9 @@ import bookingRoutes from './routes/bookingRoutes.js'
 import contactRoutes from './routes/contactRoutes.js'
 import customerAuthRoutes from './routes/customerAuthRoutes.js'
 import discountRoutes from './routes/discountRoutes.js'
+import membershipRoutes from './routes/membershipRoutes.js'
 import promotionRoutes from './routes/promotionRoutes.js'
+import seoRoutes from './routes/seoRoutes.js'
 import serviceRoutes from './routes/serviceRoutes.js'
 import settingsRoutes from './routes/settingsRoutes.js'
 import testimonialRoutes from './routes/testimonialRoutes.js'
@@ -184,6 +187,7 @@ app.use('/api/admin/bookings', adminBookingRoutes)
 app.use('/api/admin/customers', adminCustomerRoutes)
 app.use('/api/admin/dashboard', adminDashboardRoutes)
 app.use('/api/admin/emails', adminEmailRoutes)
+app.use('/api/admin/memberships', adminMembershipRoutes)
 app.use('/api/admin/promotions', adminPromotionRoutes)
 app.use('/api/admin/services', adminServiceRoutes)
 app.use('/api/admin/settings', adminSettingsRoutes)
@@ -214,6 +218,14 @@ app.use('/api/waitlist', waitlistRoutes)
 app.use('/api', promotionRoutes)
 app.use('/api', testimonialRoutes)
 app.use('/api', serviceRoutes)
+app.use('/api', membershipRoutes)
+
+/**
+ * Sitemap/robots endpoints are served at the API root (not /api) because the
+ * public site proxies www.allayhouse.com/sitemap.xml and /robots.txt to
+ * these exact paths via a Vercel rewrite — see frontend/vercel.json.
+ */
+app.use('/', seoRoutes)
 
 /**
  * Error handlers must remain after all routes.

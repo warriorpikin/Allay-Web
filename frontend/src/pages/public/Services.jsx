@@ -1,7 +1,9 @@
 import { Flower2, Leaf, Scissors, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import Breadcrumbs from '../../components/common/Breadcrumbs'
 import SectionHeader from '../../components/common/SectionHeader'
+import Seo from '../../components/common/Seo'
 import ServiceCard from '../../components/common/ServiceCard'
 import { getCategoryImage } from '../../data/allayImages'
 import { placeholderServices } from '../../data/placeholderServices'
@@ -16,11 +18,13 @@ function normalizeCategory(value = '') {
 }
 
 export default function Services() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
+  const { categorySlug: routeCategorySlug } = useParams()
+  const navigate = useNavigate()
   const [services, setServices] = useState(placeholderServices)
   const [loading, setLoading] = useState(true)
   const categoryRefs = useRef(new Map())
-  const activeCategory = searchParams.get('category') || 'all'
+  const activeCategory = routeCategorySlug || searchParams.get('category') || 'all'
 
   useEffect(() => {
     setLoading(true)
@@ -38,16 +42,24 @@ export default function Services() {
   }, [activeCategory, services])
 
   const selectCategory = (slug) => {
-    if (slug === 'all') setSearchParams({})
-    else setSearchParams({ category: slug })
+    navigate(slug === 'all' ? '/services' : `/services/category/${slug}`)
     const category = slug === 'all' ? { name: 'All services' } : serviceCategories.find((item) => item.slug === slug)
     trackEvent(ANALYTICS_EVENTS.CATEGORY_VIEW, { category_name: category?.name || slug, source_section: 'services_category_showcase' })
     categoryRefs.current.get(slug)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }
 
+  const activeCategoryData = activeCategory !== 'all' ? serviceCategories.find((category) => category.slug === activeCategory) : null
+  const pageTitle = activeCategoryData ? `${activeCategoryData.name} | Allay House` : 'Beauty & Wellness Services | Allay House'
+  const pageDescription = activeCategoryData?.description
+    ? `${activeCategoryData.description} Book ${activeCategoryData.name.toLowerCase()} at Allay House in Lagos.`
+    : 'Explore every Allay House treatment — head spa, massage, hammam, facials, nails, lashes, waxing, and reformer Pilates — and book online.'
+  const canonicalPath = activeCategoryData ? `/services/category/${activeCategoryData.slug}` : '/services'
+
   return <>
+    <Seo title={pageTitle} description={pageDescription} path={canonicalPath} />
+    <Breadcrumbs items={activeCategoryData ? [{ label: 'Home', path: '/' }, { label: 'Services', path: '/services' }, { label: activeCategoryData.name, path: canonicalPath }] : [{ label: 'Home', path: '/' }, { label: 'Services', path: '/services' }]} />
     <header className="page-intro">
-      <SectionHeader eyebrow="Explore the house" title="Care, in every form." subtitle="Beauty and wellness, each considered and made personal." as="h1" />
+      <SectionHeader eyebrow="Explore the house" title={activeCategoryData ? activeCategoryData.name : 'Care, in every form.'} subtitle={activeCategoryData?.description || 'Beauty and wellness, each considered and made personal.'} as="h1" />
     </header>
 
     <section className="category-showcase section">

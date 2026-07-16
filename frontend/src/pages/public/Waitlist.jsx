@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import Logo from '../../components/common/Logo'
 import Button from '../../components/common/Button'
+import Seo from '../../components/common/Seo'
 import WaitlistServiceSelector from '../../components/common/WaitlistServiceSelector'
 import Input from '../../components/forms/Input'
 import Textarea from '../../components/forms/Textarea'
@@ -128,6 +129,7 @@ export default function Waitlist() {
   const backgroundStyle = { '--waitlist-page-image': `url(${imagePaths.waitlist.hero})` }
 
   return <main className="waitlist-page" style={backgroundStyle}>
+    <Seo title="Join the Allay House Waitlist | Beauty & Wellness in Lagos" description="Join the private Allay House waitlist for early access and launch offers on beauty, wellness, and movement services in Lagos." path="/waitlist" />
     <WaitlistHeader returnPath={returnPath} returnLabel={returnLabel} />
     {!siteModeLoading && !waitlistEnabled
       ? <section className="waitlist-success"><span><Check /></span><small className="eyebrow">Waitlist closed</small><h1>Our private waitlist is currently closed.</h1><p>Please watch out for future openings.</p><Button to="/">Return to Allay House</Button></section>

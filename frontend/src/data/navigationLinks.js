@@ -1,6 +1,7 @@
 export const publicNavigationLinks = [
   { label: 'Home', to: '/' },
   { label: 'Services', to: '/services' },
+  { label: 'Memberships', to: '/memberships' },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
 ]
@@ -13,6 +14,7 @@ export const adminNavigationLinks = [
   { label: 'Customers', to: '/allay-admin/customers' },
   { label: 'Availability', to: '/allay-admin/availability' },
   { label: 'Services', to: '/allay-admin/services' },
+  { label: 'Memberships', to: '/allay-admin/memberships' },
   { label: 'Testimonials', to: '/allay-admin/testimonials' },
   { label: 'Website Promotions', to: '/allay-admin/promotions' },
   { label: 'Waitlist', to: '/allay-admin/waitlist' },

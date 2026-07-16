@@ -11,6 +11,8 @@ export const serviceCategories = [
   { id: 'massage', name: 'Massage', slug: 'massage', description: 'Therapeutic touch in an unhurried setting.' },
   { id: 'sauna', name: 'Sauna', slug: 'sauna', description: 'Warmth, stillness, and restorative pause.' },
   { id: 'headspa', name: 'Headspa', slug: 'headspa', description: 'Scalp, hair, and sensory renewal.' },
+  { id: 'waxing', name: 'Waxing', slug: 'waxing', description: 'Precise waxing from brow to full body.' },
+  { id: 'signature-experiences', name: 'Signature Experiences', slug: 'signature-experiences', description: 'Full-day, bridal, and corporate wellness experiences.' },
 ]
 
 export default serviceCategories
