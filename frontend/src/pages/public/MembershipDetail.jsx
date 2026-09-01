@@ -1,15 +1,15 @@
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Breadcrumbs from '../../components/common/Breadcrumbs'
-import Button from '../../components/common/Button'
-import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import Seo from '../../components/common/Seo'
+import WhatsAppButton from '../../components/common/WhatsAppButton'
 import { sharedMemberPerks } from '../../data/membershipPerks'
 import { getMembershipBySlug } from '../../services/servicesApi'
 import { formatCurrency } from '../../utils/formatCurrency'
 import { buildMembershipJsonLd } from '../../utils/structuredData'
+import { membershipWhatsAppMessage } from '../../utils/whatsapp'
 import NotFound from './NotFound'
 
 export default function MembershipDetail() {
@@ -41,8 +41,8 @@ export default function MembershipDetail() {
     />
     <Breadcrumbs items={[{ label: 'Home', path: '/' }, { label: 'Memberships', path: '/memberships' }, { label: membership.name, path: `/memberships/${membership.slug}` }]} />
     <section className="service-detail section">
-      <div className="service-detail__image">
-        <ImagePlaceholder src={membership.imageUrl} alt={`${membership.name} membership at Allay House`} variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
+      <div className={`service-detail__image ${membership.imageUrl ? 'has-image' : ''}`}>
+        {membership.imageUrl ? <img src={membership.imageUrl} alt={`${membership.name} membership at Allay House`} loading="eager" fetchPriority="high" decoding="async" /> : <div className="service-detail__art" aria-hidden="true"><Sparkles size={22} /><span>Membership</span><strong>{membership.name}</strong><i>Allay House</i></div>}
       </div>
       <div className="service-detail__content">
         <Link className="text-link" to="/memberships"><ArrowLeft size={15} /> All memberships</Link>
@@ -63,7 +63,7 @@ export default function MembershipDetail() {
 
         {membership.terms && <p className="membership-detail__terms">{membership.terms}</p>}
 
-        <Button to={`/contact?membership=${encodeURIComponent(membership.name)}`}>Enquire to join {membership.name}</Button>
+        <WhatsAppButton message={membershipWhatsAppMessage(membership)}>Join {membership.name} on WhatsApp</WhatsAppButton>
       </div>
     </section>
   </>

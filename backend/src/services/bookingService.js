@@ -5,6 +5,7 @@ import { getPublicSiteMode } from './settingsService.js'
 import { addMinutesToTime } from '../utils/timeSlots.js'
 import { generateBookingReference } from '../utils/bookingReference.js'
 import { sendBookingEmails } from './emailService.js'
+import { buildWhatsAppHandoff, hasVariableBookingPrice } from './whatsappService.js'
 
 function candidateIdentifiers(selectedServices = []) {
   const values = selectedServices.flatMap((service) => [service.id, service.serviceId, service.slug]).filter(Boolean)
@@ -16,7 +17,8 @@ async function resolveServices(selectedServices = []) {
   if (!identifiers.length) return []
 
   const result = await query(
-    `SELECT id, name, slug, duration_minutes, price, is_active, is_discount_eligible
+    `SELECT id, name, slug, duration_minutes, duration_label, price, price_from, price_to,
+       price_is_from, price_unit_label, price_options, is_active, is_discount_eligible
      FROM services
      WHERE (id::text = ANY($1) OR slug = ANY($1))
        AND is_active = TRUE
@@ -27,10 +29,23 @@ async function resolveServices(selectedServices = []) {
   return result.rows
 }
 
-async function findOrCreateCustomer(client, { customerName, customerEmail, customerPhone }) {
-  const existing = await client.query('SELECT id FROM customers WHERE LOWER(email) = LOWER($1) LIMIT 1', [customerEmail])
+async function findOrCreateCustomer(client, { customerName, customerEmail, customerPhone }, authenticatedCustomerId = null) {
+  if (authenticatedCustomerId) {
+    const account = await client.query('SELECT id FROM customers WHERE id = $1 LIMIT 1', [authenticatedCustomerId])
+    if (account.rows[0]) {
+      await client.query('UPDATE customers SET full_name = $1, phone = $2 WHERE id = $3', [customerName, customerPhone, account.rows[0].id])
+      return account.rows[0].id
+    }
+  }
+
+  const existing = await client.query('SELECT id, password_hash FROM customers WHERE LOWER(email) = LOWER($1) ORDER BY created_at ASC LIMIT 1', [customerEmail])
   if (existing.rows[0]) {
-    await client.query('UPDATE customers SET full_name = $1, phone = $2 WHERE id = $3', [customerName, customerPhone, existing.rows[0].id])
+    // Never let an unauthenticated guest silently rewrite a registered
+    // customer's account profile. The booking itself still keeps the guest's
+    // submitted name, email, and phone as an immutable snapshot.
+    if (!existing.rows[0].password_hash) {
+      await client.query('UPDATE customers SET full_name = $1, phone = $2 WHERE id = $3', [customerName, customerPhone, existing.rows[0].id])
+    }
     return existing.rows[0].id
   }
   const created = await client.query(
@@ -40,7 +55,7 @@ async function findOrCreateCustomer(client, { customerName, customerEmail, custo
   return created.rows[0].id
 }
 
-export async function createBookingRequest(payload) {
+export async function createBookingRequest(payload, { authenticatedCustomerId = null } = {}) {
   const siteMode = await getPublicSiteMode()
   if (siteMode.mode !== 'live') {
     const error = new Error('Booking is not live yet. Please join the private waitlist for launch access.')
@@ -49,8 +64,12 @@ export async function createBookingRequest(payload) {
   }
 
   const services = await resolveServices(payload.selectedServices)
-  if (!services.length) {
-    const error = new Error('Choose at least one active service.')
+  const unresolvedSelection = payload.selectedServices.some((selected) => {
+    const identifiers = [selected.id, selected.serviceId, selected.slug].filter(Boolean).map(String)
+    return !identifiers.length || !services.some((service) => identifiers.includes(String(service.id)) || identifiers.includes(service.slug))
+  })
+  if (!services.length || unresolvedSelection) {
+    const error = new Error('One or more selected services are no longer available. Refresh the service menu and choose again.')
     error.status = 400
     throw error
   }
@@ -82,11 +101,12 @@ export async function createBookingRequest(payload) {
 
   const client = await pool.connect()
   let createdBooking = null
+  let bookingReference = ''
   let createdServices = services
   try {
     await client.query('BEGIN')
-    const customerId = await findOrCreateCustomer(client, payload)
-    const bookingReference = generateBookingReference()
+    const customerId = await findOrCreateCustomer(client, payload, authenticatedCustomerId)
+    bookingReference = generateBookingReference()
     const endTime = addMinutesToTime(payload.preferredTime, totalDurationMinutes)
     const booking = await client.query(
       `INSERT INTO bookings (
@@ -125,10 +145,14 @@ export async function createBookingRequest(payload) {
       )
     }
 
-    // TODO: trigger customer booking confirmation email after email automation is connected.
-    // TODO: trigger admin booking notification email after email automation is connected.
+    const whatsapp = buildWhatsAppHandoff({ booking: booking.rows[0], services })
+    const updated = await client.query(
+      'UPDATE bookings SET whatsapp_message = $1 WHERE id = $2 RETURNING *',
+      [whatsapp.message, booking.rows[0].id],
+    )
+
     await client.query('COMMIT')
-    createdBooking = booking.rows[0]
+    createdBooking = updated.rows[0]
   } catch (error) {
     await client.query('ROLLBACK')
     throw error
@@ -137,11 +161,13 @@ export async function createBookingRequest(payload) {
   }
 
   const emailStatus = await sendBookingEmails({ booking: createdBooking, services: createdServices })
+  const whatsapp = buildWhatsAppHandoff({ booking: createdBooking, services: createdServices })
   return {
     booking: createdBooking,
     services,
     bookingReference,
     emailStatus,
+    whatsapp,
     confirmation: {
       reference: bookingReference,
       customer: {
@@ -154,6 +180,7 @@ export async function createBookingRequest(payload) {
         name: service.name,
         slug: service.slug,
         durationMinutes: Number(service.duration_minutes),
+        durationLabel: service.duration_label || null,
         price: Number(service.price),
       })),
       date: createdBooking.appointment_date,
@@ -162,9 +189,22 @@ export async function createBookingRequest(payload) {
       subtotal: Number(createdBooking.subtotal),
       discountAmount: Number(createdBooking.discount_amount),
       totalAmount: Number(createdBooking.total_amount),
+      priceIsEstimated: hasVariableBookingPrice(services),
       status: createdBooking.status,
       createdAt: createdBooking.created_at,
       emailSent: Boolean(emailStatus.customer),
+      whatsapp,
     },
   }
+}
+
+export async function markWhatsAppHandoff(bookingReference) {
+  const result = await query(
+    `UPDATE bookings
+     SET whatsapp_handoff_at = COALESCE(whatsapp_handoff_at, NOW())
+     WHERE UPPER(booking_reference) = UPPER($1)
+     RETURNING booking_reference AS "bookingReference", whatsapp_handoff_at AS "whatsappHandoffAt"`,
+    [bookingReference],
+  )
+  return result.rows[0] || null
 }

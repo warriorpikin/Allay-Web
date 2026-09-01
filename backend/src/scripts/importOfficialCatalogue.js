@@ -8,19 +8,13 @@
 //   whole import back — nothing is left half-applied.
 // - Upserts services/categories/memberships by slug, so running this twice
 //   updates existing rows instead of duplicating them.
-// - Never hard-deletes a service that is referenced by a booking, waitlist
-//   entry, discount code, capacity override, add-on or package row — those
-//   are archived (is_active = false) instead, so historical bookings keep
-//   working. Only the original 13 seeded services are ever candidates for
-//   archive/delete, and only by their known slugs — this script never
-//   touches services it doesn't recognise, so re-running it later (after an
-//   admin has added unrelated services) is safe.
+// - Treats the supplied menu as authoritative. Anything not listed is
+//   archived rather than deleted, so historical bookings remain intact.
 import { pathToFileURL } from 'node:url'
 import { pool } from '../config/database.js'
 import {
-  legacySeededServiceSlugs,
+  catalogueCategories,
   memberships,
-  newCategories,
   officialServices,
 } from '../db/seedData/officialCatalogue.js'
 
@@ -45,30 +39,10 @@ function buildSeoFields(name, categoryName, shortDescription) {
   return { title, description, keywords: [...keywordTerms].join(', ') }
 }
 
-// Tables with a service_id foreign key. A legacy service is only safe to
-// hard-delete when none of these reference it.
-const SERVICE_REFERENCE_TABLES = [
-  ['booking_services', 'service_id'],
-  ['booking_items', 'service_id'],
-  ['waitlist_selected_services', 'service_id'],
-  ['discount_code_services', 'service_id'],
-  ['booking_capacity_overrides', 'service_id'],
-  ['service_addons', 'service_id'],
-  ['service_packages', 'service_id'],
-]
-
-export async function isServiceReferenced(client, serviceId) {
-  for (const [table, column] of SERVICE_REFERENCE_TABLES) {
-    const result = await client.query(`SELECT 1 FROM ${table} WHERE ${column} = $1 LIMIT 1`, [serviceId])
-    if (result.rows.length) return true
-  }
-  return false
-}
-
 export function assertNoDuplicateSlugs() {
   const seen = new Map()
   for (const service of officialServices) {
-    const slug = slugify(service.name)
+    const slug = service.slug
     if (!slug) throw new Error(`Service "${service.name}" produced an empty slug.`)
     if (seen.has(slug)) throw new Error(`Duplicate slug "${slug}" for "${service.name}" and "${seen.get(slug)}" — fix officialCatalogue.js before importing.`)
     seen.set(slug, service.name)
@@ -80,10 +54,8 @@ export async function run() {
 
   const summary = {
     categoriesCreated: 0,
-    categoriesReused: 0,
+    categoriesUpdated: 0,
     legacyArchived: 0,
-    legacyDeleted: 0,
-    legacyAlreadyHandled: 0,
     servicesCreated: 0,
     servicesUpdated: 0,
     signatureExperiencesCreated: 0,
@@ -97,9 +69,8 @@ export async function run() {
   try {
     await client.query('BEGIN')
 
-    // 1. Ensure the two new categories exist (safe even if migration 009
-    // already created them — ON CONFLICT-equivalent existence check).
-    for (const category of newCategories) {
+    // 1. Repair or update every category used by this authoritative menu.
+    for (const category of catalogueCategories) {
       const existing = await client.query('SELECT id FROM service_categories WHERE slug = $1', [category.slug])
       if (!existing.rows[0]) {
         await client.query(
@@ -108,6 +79,14 @@ export async function run() {
           [category.name, category.slug, category.description, category.displayOrder],
         )
         summary.categoriesCreated += 1
+      } else {
+        await client.query(
+          `UPDATE service_categories
+           SET name = $1, description = $2, display_order = $3, is_active = TRUE
+           WHERE slug = $4`,
+          [category.name, category.description, category.displayOrder, category.slug],
+        )
+        summary.categoriesUpdated += 1
       }
     }
 
@@ -115,24 +94,16 @@ export async function run() {
     const categoryIdBySlug = new Map(categoryRows.map((row) => [row.slug, row.id]))
     const categoryNameBySlug = new Map(categoryRows.map((row) => [row.slug, row.name]))
 
-    const distinctServiceCategorySlugs = new Set(officialServices.map((service) => service.categorySlug))
-    summary.categoriesReused = [...distinctServiceCategorySlugs].filter((slug) => !newCategories.some((c) => c.slug === slug)).length
+    const officialSlugs = new Set(officialServices.map((service) => service.slug))
 
-    // A handful of official-catalogue names (e.g. "Deep Tissue Massage")
-    // happen to slugify to the same value as one of the 13 legacy services.
-    // When that happens the slug now belongs to a live, current, official
-    // service — step 3 below must never retire it just because it also
-    // appears in legacySeededServiceSlugs.
-    const officialSlugs = new Set(officialServices.map((service) => slugify(service.name)))
-
-    // 2. Upsert the 125 official catalogue services by slug.
+    // 2. Upsert the supplied official catalogue services by stable slug.
     for (const service of officialServices) {
       const categoryId = categoryIdBySlug.get(service.categorySlug)
       if (!categoryId) {
         throw new Error(`Unknown category slug "${service.categorySlug}" for service "${service.name}" — aborting import.`)
       }
 
-      const slug = slugify(service.name)
+      const slug = service.slug
       const categoryName = categoryNameBySlug.get(service.categorySlug)
       const seo = buildSeoFields(service.name, categoryName, service.short)
       const isSignature = service.categorySlug === 'signature-experiences'
@@ -146,14 +117,17 @@ export async function run() {
             price = $6, price_from = $7, price_to = $8, price_is_from = $9, price_unit_label = $10,
             service_type = $11, is_addon = $12, is_couples = $13, session_count = $14,
             seo_title = $15, seo_description = $16, seo_keywords = $17,
-            display_order = $18, is_active = TRUE, bookable = TRUE, simultaneous_capacity = COALESCE(simultaneous_capacity, 7)
-           WHERE id = $19`,
+            display_order = $18, service_group = $19, duration_label = $20, price_options = $21::jsonb,
+            is_active = TRUE, bookable = TRUE, simultaneous_capacity = COALESCE(simultaneous_capacity, 7)
+           WHERE id = $22`,
           [
             categoryId, service.name, service.description, service.short, service.duration,
             service.price, service.priceFrom, service.priceTo, service.priceIsFrom, service.priceUnitLabel,
             service.serviceType, service.isAddon, service.isCouples, service.sessionCount,
             seo.title, seo.description, seo.keywords,
-            service.order, existing.rows[0].id,
+            service.order, service.serviceGroup, service.durationLabel,
+            service.priceOptions ? JSON.stringify(service.priceOptions) : null,
+            existing.rows[0].id,
           ],
         )
         summary.servicesUpdated += 1
@@ -165,16 +139,18 @@ export async function run() {
             price, price_from, price_to, price_is_from, price_unit_label,
             service_type, is_addon, is_couples, session_count,
             seo_title, seo_description, seo_keywords,
-            display_order, is_active, bookable, is_discount_eligible, simultaneous_capacity
+            display_order, service_group, duration_label, price_options,
+            is_active, bookable, is_discount_eligible, simultaneous_capacity
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, TRUE, TRUE, TRUE, 7
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb, TRUE, TRUE, TRUE, 7
           )`,
           [
             categoryId, service.name, slug, service.description, service.short, service.duration,
             service.price, service.priceFrom, service.priceTo, service.priceIsFrom, service.priceUnitLabel,
             service.serviceType, service.isAddon, service.isCouples, service.sessionCount,
             seo.title, seo.description, seo.keywords,
-            service.order,
+            service.order, service.serviceGroup, service.durationLabel,
+            service.priceOptions ? JSON.stringify(service.priceOptions) : null,
           ],
         )
         summary.servicesCreated += 1
@@ -182,34 +158,15 @@ export async function run() {
       }
     }
 
-    // 3. Retire the 13 originally-seeded services — archive if referenced by
-    // booking/waitlist/discount/capacity history, otherwise hard-delete.
-    // Skip any slug that the official catalogue itself re-uses (see note
-    // above) — that row was just upserted with current, active content.
-    for (const slug of legacySeededServiceSlugs) {
-      if (officialSlugs.has(slug)) {
-        summary.legacyAlreadyHandled += 1
-        continue
-      }
-      const existing = await client.query('SELECT id, is_active FROM services WHERE slug = $1', [slug])
-      if (!existing.rows[0]) {
-        summary.legacyAlreadyHandled += 1
-        continue
-      }
-      const { id, is_active: isActive } = existing.rows[0]
-      const referenced = await isServiceReferenced(client, id)
-      if (referenced) {
-        if (isActive) {
-          await client.query('UPDATE services SET is_active = FALSE, bookable = FALSE WHERE id = $1', [id])
-          summary.legacyArchived += 1
-        } else {
-          summary.legacyAlreadyHandled += 1
-        }
-      } else {
-        await client.query('DELETE FROM services WHERE id = $1', [id])
-        summary.legacyDeleted += 1
-      }
-    }
+    // 3. The supplied menu is authoritative. Archive every unlisted service
+    // instead of deleting it so old bookings and reporting remain intact.
+    const archived = await client.query(
+      `UPDATE services SET is_active = FALSE, bookable = FALSE
+       WHERE NOT (slug = ANY($1::text[])) AND (is_active = TRUE OR COALESCE(bookable, TRUE) = TRUE)
+       RETURNING id`,
+      [[...officialSlugs]],
+    )
+    summary.legacyArchived = archived.rowCount
 
     // 4. Upsert the three membership plans by slug.
     for (const membership of memberships) {
@@ -265,15 +222,13 @@ export async function run() {
 function printSummary(summary) {
   console.log('\nOfficial Allay House catalogue import — summary')
   console.log('================================================')
-  console.log(`Categories reused:              ${summary.categoriesReused}`)
+  console.log(`Categories updated:             ${summary.categoriesUpdated}`)
   console.log(`Categories created:              ${summary.categoriesCreated}`)
   console.log(`Services created:                ${summary.servicesCreated}`)
   console.log(`Services updated:                ${summary.servicesUpdated}`)
   console.log(`  of which signature experiences created: ${summary.signatureExperiencesCreated}`)
   console.log(`  of which signature experiences updated: ${summary.signatureExperiencesUpdated}`)
   console.log(`Legacy services archived:        ${summary.legacyArchived}`)
-  console.log(`Legacy services deleted:         ${summary.legacyDeleted}`)
-  console.log(`Legacy services already handled: ${summary.legacyAlreadyHandled}`)
   console.log(`Memberships created:             ${summary.membershipsCreated}`)
   console.log(`Memberships updated:             ${summary.membershipsUpdated}`)
   console.log(`Skipped or invalid records:      ${summary.skipped.length}`)

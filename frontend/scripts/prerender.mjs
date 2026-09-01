@@ -26,7 +26,7 @@ const distDir = path.resolve(__dirname, '../dist')
 
 const SITE_URL = (process.env.VITE_SITE_URL || 'http://localhost:5173').replace(/\/+$/, '')
 const API_URL = (process.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
-const DEFAULT_IMAGE = `${SITE_URL}/images/allay/home/home-hero-main.jpg`
+const DEFAULT_IMAGE = `${SITE_URL}/images/allay/home/home-hero-main.webp`
 
 function siteUrl(p = '') {
   return `${SITE_URL}${p.startsWith('/') ? p : `/${p}`}`
@@ -46,12 +46,13 @@ async function fetchJson(url) {
   return response.json()
 }
 
-function injectHead(template, { title, description, path: routePath, image = DEFAULT_IMAGE, jsonLdList = [] }) {
+function injectHead(template, { title, description, path: routePath, image = DEFAULT_IMAGE, preloadImage, jsonLdList = [] }) {
   const canonical = siteUrl(routePath)
   let html = template.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
   html = html.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${escapeHtml(description)}" />`)
 
   const tags = [
+    preloadImage ? `<link rel="preload" as="image" href="${escapeHtml(preloadImage)}"${preloadImage.endsWith('.webp') ? ' type="image/webp"' : ''} fetchpriority="high" />` : null,
     `<link rel="canonical" href="${escapeHtml(canonical)}" />`,
     '<meta name="robots" content="index, follow" />',
     '<meta property="og:site_name" content="Allay House" />',
@@ -65,7 +66,7 @@ function injectHead(template, { title, description, path: routePath, image = DEF
     `<meta name="twitter:description" content="${escapeHtml(description)}" />`,
     `<meta name="twitter:image" content="${escapeHtml(image)}" />`,
     ...jsonLdList.filter(Boolean).map((entry) => `<script type="application/ld+json">${JSON.stringify(entry)}</script>`),
-  ].join('\n    ')
+  ].filter(Boolean).join('\n    ')
 
   return html.replace('</head>', `    ${tags}\n  </head>`)
 }
@@ -120,19 +121,20 @@ async function run() {
 
   await writeRoute(template, '/', {
     title: 'Allay House | Beauty, Wellness & Movement in Lagos',
-    description: 'Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, lashes, waxing, and reformer Pilates.',
+    description: 'Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, hair, and reformer Pilates.',
+    preloadImage: '/images/allay/categories/category-spa.webp',
     jsonLdList: [organizationJsonLd()],
   })
 
   const staticPages = [
-    { path: '/about', title: 'About Allay House | Beauty, Wellness & Movement', description: 'Allay House is a Lagos sanctuary bringing beauty treatments, spa rituals, and restorative movement into one considered experience.' },
-    { path: '/contact', title: 'Contact Allay House | Beauty, Wellness & Movement in Lagos', description: 'Get in touch with Allay House in Lagos, Nigeria — questions, collaborations, or help choosing your first treatment.' },
-    { path: '/services', title: 'Beauty & Wellness Services | Allay House', description: 'Explore every Allay House treatment — head spa, massage, hammam, facials, nails, lashes, waxing, and reformer Pilates — and book online.' },
+    { path: '/about', title: 'About Allay House | Beauty, Wellness & Movement', description: 'Allay House is a Lagos sanctuary bringing beauty treatments, spa rituals, and restorative movement into one considered experience.', preloadImage: '/images/allay/about/about-hero-portrait.webp' },
+    { path: '/contact', title: 'Contact Allay House | Beauty, Wellness & Movement in Lagos', description: 'Get in touch with Allay House in Lagos, Nigeria — questions, collaborations, or help choosing your first treatment.', preloadImage: '/images/allay/contact/contact-hero-portrait.webp' },
+    { path: '/services', title: 'Beauty & Wellness Services | Allay House', description: 'Explore the complete Allay House menu — head spa, massage, hammam, facials, hair, nails, and reformer Pilates — with transparent pricing and WhatsApp booking.' },
     { path: '/memberships', title: 'Beauty and Wellness Memberships | Allay House', description: 'Join an Allay House membership for a monthly rhythm of head spa, massage, hammam, Pilates, and beauty rituals — with priority booking and member pricing.' },
     { path: '/privacy-policy', title: 'Privacy Policy | Allay House', description: 'How Allay House collects, uses, and protects your personal information.' },
     { path: '/terms-of-use', title: 'Terms of Use | Allay House', description: 'Terms for using the Allay House website and booking services.' },
-    { path: '/landing', title: 'Allay House | Beauty, Wellness & Movement in Lagos', description: 'Allay House is opening in Lagos — a refined sanctuary for beauty, wellness, and movement. Join the waitlist for early access.' },
-    { path: '/waitlist', title: 'Join the Allay House Waitlist | Beauty & Wellness in Lagos', description: 'Join the private Allay House waitlist for early access and launch offers on beauty, wellness, and movement services in Lagos.' },
+    { path: '/landing', title: 'Allay House | Beauty, Wellness & Movement in Lagos', description: 'Allay House is opening in Lagos — a refined sanctuary for beauty, wellness, and movement. Join the waitlist for early access.', preloadImage: '/images/allay/home/home-hero-main-portrait.webp' },
+    { path: '/waitlist', title: 'Join the Allay House Waitlist | Beauty & Wellness in Lagos', description: 'Join the private Allay House waitlist for early access and launch offers on beauty, wellness, and movement services in Lagos.', preloadImage: '/images/allay-house-hero.webp' },
   ]
   for (const page of staticPages) await writeRoute(template, page.path, page)
 

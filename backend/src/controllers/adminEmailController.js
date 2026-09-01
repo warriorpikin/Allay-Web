@@ -32,9 +32,10 @@ const campaignPayloadSchema = z.object({
   imageAlt: z.string().trim().max(200).optional().default(''),
   ctaLabel: z.string().trim().max(60).optional().default(''),
   ctaUrl: z.string().trim().optional().default(''),
-  audienceType: z.enum(['all_users', 'all_waitlist', 'selected_users', 'selected_waitlist', 'manual']),
+  audienceType: z.enum(['all_users', 'all_waitlist', 'all_booked_customers', 'selected_users', 'selected_waitlist', 'selected_booked_customers', 'manual']),
   selectedUserIds: z.array(z.string()).optional().default([]),
   selectedWaitlistIds: z.array(z.string()).optional().default([]),
+  selectedCustomerIds: z.array(z.string()).optional().default([]),
   manualEmails: z.string().optional().default(''),
   replyMode: z.enum(['default', 'custom', 'none']).optional().default('default'),
   replyTo: z.string().trim().optional().default(''),
@@ -62,7 +63,7 @@ function respondWithAppError(res, error, next) {
 
 export async function getRecipients(req, res, next) {
   try {
-    const type = req.query.type === 'waitlist' ? 'waitlist' : 'users'
+    const type = req.query.type === 'waitlist' ? 'waitlist' : req.query.type === 'booked_customers' ? 'booked_customers' : 'users'
     const search = String(req.query.search || '')
     const recipients = await searchRecipients({ type, search })
     return res.json({ recipients })
@@ -166,8 +167,8 @@ export async function uploadCampaignImage(req, res, next) {
 }
 
 const DEFAULT_SAMPLE_SERVICES = [
-  { name: 'Signature Glow Facial', price: 20000 },
-  { name: 'Sauna Session', price: 15000 },
+  { name: 'Allay House Signature Ritual', price: 195000 },
+  { name: 'Traditional Sauna', price: 30000 },
 ]
 
 async function resolveWaitlistCouponSampleData(waitlistEntryId) {

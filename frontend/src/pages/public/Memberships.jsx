@@ -4,13 +4,14 @@ import Badge from '../../components/common/Badge'
 import Breadcrumbs from '../../components/common/Breadcrumbs'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
-import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import SectionHeader from '../../components/common/SectionHeader'
 import Seo from '../../components/common/Seo'
+import WhatsAppButton from '../../components/common/WhatsAppButton'
 import { sharedMemberPerks } from '../../data/membershipPerks'
 import { getMemberships } from '../../services/servicesApi'
 import { formatCurrency } from '../../utils/formatCurrency'
+import { membershipWhatsAppMessage } from '../../utils/whatsapp'
 
 export default function Memberships() {
   const [memberships, setMemberships] = useState([])
@@ -39,10 +40,11 @@ export default function Memberships() {
       {loading ? <Loader label="Loading memberships" /> : failed || !memberships.length ? (
         <EmptyState title="Memberships are being updated" message="Please check back shortly, or contact us to ask about membership plans." action={<Button to="/contact">Contact us</Button>} />
       ) : <div className="membership-grid">
-        {memberships.map((membership) => <article key={membership.id} className="membership-card">
-          <div className="membership-card__image"><ImagePlaceholder src={membership.imageUrl} alt={`${membership.name} membership at Allay House`} variant="card" width="640" height="420" /></div>
+        {memberships.map((membership, index) => <article key={membership.id} className={`membership-card ${membership.imageUrl ? 'has-image' : ''}`}>
+          {membership.imageUrl && <img className="membership-card__background" src={membership.imageUrl} alt="" loading="lazy" decoding="async" />}
+          <div className="membership-card__wash" aria-hidden="true" />
           <div className="membership-card__body">
-            {membership.isFeatured && <Badge status="paid">Most popular</Badge>}
+            <div className="membership-card__topline"><span>{String(index + 1).padStart(2, '0')} / {String(memberships.length).padStart(2, '0')}</span>{membership.isFeatured && <Badge status="paid">Most popular</Badge>}</div>
             <h3>{membership.name}</h3>
             <p className="membership-card__tagline">{membership.tagline}</p>
             <strong className="membership-card__price">{formatCurrency(membership.monthlyPrice)}<span> / month</span></strong>
@@ -52,7 +54,7 @@ export default function Memberships() {
             {membership.benefits.length > 5 && <p className="membership-card__more">+{membership.benefits.length - 5} more benefits</p>}
             <div className="membership-card__actions">
               <Button to={`/memberships/${membership.slug}`} variant="outline">View details</Button>
-              <Button to={`/contact?membership=${encodeURIComponent(membership.name)}`}>Enquire to join</Button>
+              <WhatsAppButton message={membershipWhatsAppMessage(membership)}>Join on WhatsApp</WhatsAppButton>
             </div>
           </div>
         </article>)}

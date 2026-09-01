@@ -1,44 +1,46 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminLayout from '../components/layout/AdminLayout'
 import PublicLayout from '../components/layout/PublicLayout'
 import AuthLayout from '../components/layout/AuthLayout'
-import AdminLogin from '../pages/admin/AdminLogin'
-import Analytics from '../pages/admin/Analytics'
-import Availability from '../pages/admin/Availability'
-import BookingDetails from '../pages/admin/BookingDetails'
-import Bookings from '../pages/admin/Bookings'
-import Customers from '../pages/admin/Customers'
-import AdminEmails from '../pages/admin/AdminEmails'
-import Dashboard from '../pages/admin/Dashboard'
-import EmailLogs from '../pages/admin/EmailLogs'
-import MembershipsManager from '../pages/admin/MembershipsManager'
-import Payments from '../pages/admin/Payments'
-import Promotions from '../pages/admin/Promotions'
-import ServicesManager from '../pages/admin/ServicesManager'
-import Settings from '../pages/admin/Settings'
-import Testimonials from '../pages/admin/Testimonials'
-import Users from '../pages/admin/Users'
-import WaitlistManager from '../pages/admin/WaitlistManager'
-import SignIn from '../pages/auth/SignIn'
-import SignUp from '../pages/auth/SignUp'
-import About from '../pages/public/About'
-import Booking from '../pages/public/Booking'
-import BookingSuccess from '../pages/public/BookingSuccess'
-import Contact from '../pages/public/Contact'
+import Loader from '../components/common/Loader'
 import Home from '../pages/public/Home'
 import Landing from '../pages/public/Landing'
-import MembershipDetail from '../pages/public/MembershipDetail'
-import Memberships from '../pages/public/Memberships'
-import NotFound from '../pages/public/NotFound'
-import PrivacyPolicy from '../pages/public/PrivacyPolicy'
-import ServiceDetail from '../pages/public/ServiceDetail'
-import Services from '../pages/public/Services'
-import TermsOfUse from '../pages/public/TermsOfUse'
-import Waitlist from '../pages/public/Waitlist'
 import ProtectedRoute from './ProtectedRoute'
 
+const AdminLogin = lazy(() => import('../pages/admin/AdminLogin'))
+const Analytics = lazy(() => import('../pages/admin/Analytics'))
+const Availability = lazy(() => import('../pages/admin/Availability'))
+const BookingDetails = lazy(() => import('../pages/admin/BookingDetails'))
+const Bookings = lazy(() => import('../pages/admin/Bookings'))
+const Customers = lazy(() => import('../pages/admin/Customers'))
+const AdminEmails = lazy(() => import('../pages/admin/AdminEmails'))
+const Dashboard = lazy(() => import('../pages/admin/Dashboard'))
+const EmailLogs = lazy(() => import('../pages/admin/EmailLogs'))
+const MembershipsManager = lazy(() => import('../pages/admin/MembershipsManager'))
+const Promotions = lazy(() => import('../pages/admin/Promotions'))
+const ServicesManager = lazy(() => import('../pages/admin/ServicesManager'))
+const Settings = lazy(() => import('../pages/admin/Settings'))
+const Testimonials = lazy(() => import('../pages/admin/Testimonials'))
+const Users = lazy(() => import('../pages/admin/Users'))
+const WaitlistManager = lazy(() => import('../pages/admin/WaitlistManager'))
+const SignIn = lazy(() => import('../pages/auth/SignIn'))
+const SignUp = lazy(() => import('../pages/auth/SignUp'))
+const About = lazy(() => import('../pages/public/About'))
+const Booking = lazy(() => import('../pages/public/Booking'))
+const BookingSuccess = lazy(() => import('../pages/public/BookingSuccess'))
+const Contact = lazy(() => import('../pages/public/Contact'))
+const MembershipDetail = lazy(() => import('../pages/public/MembershipDetail'))
+const Memberships = lazy(() => import('../pages/public/Memberships'))
+const NotFound = lazy(() => import('../pages/public/NotFound'))
+const PrivacyPolicy = lazy(() => import('../pages/public/PrivacyPolicy'))
+const ServiceDetail = lazy(() => import('../pages/public/ServiceDetail'))
+const Services = lazy(() => import('../pages/public/Services'))
+const TermsOfUse = lazy(() => import('../pages/public/TermsOfUse'))
+const Waitlist = lazy(() => import('../pages/public/Waitlist'))
+
 export default function AppRoutes() {
-  return <Routes>
+  return <Suspense fallback={<Loader label="Preparing Allay House" />}><Routes>
     <Route element={<PublicLayout />}>
       <Route index element={<Home />} />
       <Route path="services" element={<Services />} />
@@ -77,12 +79,12 @@ export default function AppRoutes() {
         <Route path="promotions" element={<Promotions />} />
         <Route path="availability" element={<Availability />} />
         <Route path="waitlist" element={<WaitlistManager />} />
-        <Route path="payments" element={<Payments />} />
+        <Route path="payments" element={<Navigate to="/allay-admin/bookings" replace />} />
         <Route path="emails" element={<AdminEmails />} />
         <Route path="email-logs" element={<EmailLogs />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Route>
     <Route path="allay-admin/overview" element={<Navigate to="/allay-admin" replace />} />
-  </Routes>
+  </Routes></Suspense>
 }

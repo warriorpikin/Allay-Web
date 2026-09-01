@@ -22,15 +22,15 @@ const LANDING_HERO_SERVICE_NAMES = [
   'Allay Spa',
   'Allay Pilates',
   'Allay Nail Studio',
-  'Allay Lash Studio',
   'Allay Salon',
   'Facials',
   'Massage',
   'Sauna',
   'Headspa',
-  'Hair Styling',
-  'Braiding',
-  'Premium Human Hair Wigs',
+  'Wash & Styling',
+  'Wig Installation',
+  'Braids',
+  'Hammam Rituals',
 ]
 
 const experienceNotes = [
@@ -48,7 +48,7 @@ export default function Landing() {
   const waitlistCategoryPath = (slug) => `/waitlist?category=${encodeURIComponent(slug)}`
 
   return <div className="landing-page">
-    <Seo title="Allay House | Beauty, Wellness & Movement in Lagos" description="Allay House is opening in Lagos — a refined sanctuary for beauty, wellness, and movement. Join the waitlist for early access." path="/landing" />
+    <Seo title="Allay House | Beauty, Wellness & Movement in Lagos" description="Allay House is opening in Lagos — a refined sanctuary for beauty, wellness, and movement. Join the waitlist for early access." path="/landing" preloadImage={imagePaths.home.heroMain} />
     <header className="landing-header">
       <BrandLogo to="/landing" />
       <button className="landing-menu" type="button" onClick={() => setOpen((value) => !value)} aria-label="Toggle landing navigation" aria-controls="landing-navigation" aria-expanded={open}>{open ? <X /> : <Menu />}</button>

@@ -41,6 +41,7 @@ export const getAdminAnalyticsOverview = (params = {}) => {
 export const getDashboardStats = () => api.get('/admin/dashboard/summary').then(({ data }) => data)
 export const getAdminBusinessAnalytics = (params = {}) => api.get('/admin/analytics/business-overview', { params }).then(({ data }) => data)
 export const getBookings = (params) => api.get('/admin/bookings', { params }).then(({ data }) => data)
+export const exportBookingsCsv = (params) => api.get('/admin/bookings/export.csv', { params, responseType: 'blob' }).then(({ data, headers }) => ({ blob: data, disposition: headers['content-disposition'] }))
 export const getAdminBooking = (id) => api.get(`/admin/bookings/${id}`).then(({ data }) => data)
 export const getAdminUsers = (params) => api.get('/admin/users', { params }).then(({ data }) => data)
 export const getAdminCustomers = (params) => api.get('/admin/customers', { params }).then(({ data }) => data)
@@ -65,6 +66,7 @@ export const getSettings = () => api.get('/admin/settings').then(({ data }) => d
 export const updateSetting = (key, data) => api.patch(`/admin/settings/${key}`, data).then(({ data: response }) => response)
 export const updateBookingStatus = (id, data) => api.patch(`/admin/bookings/${id}/status`, data).then((response) => response.data)
 export const updateBookingPaymentStatus = (id, data) => api.patch(`/admin/bookings/${id}/payment-status`, data).then((response) => response.data)
+export const confirmAdminBooking = (id, data) => api.patch(`/admin/bookings/${id}/confirm`, data).then((response) => response.data)
 
 export const getAdminPromotions = () => api.get('/admin/promotions').then(({ data }) => data)
 export const getAdminPromotion = (id) => api.get(`/admin/promotions/${id}`).then(({ data }) => data)

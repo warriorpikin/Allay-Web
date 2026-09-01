@@ -110,7 +110,7 @@ export default function Contact() {
   }
 
   return <>
-    <Seo title="Contact Allay House | Beauty, Wellness & Movement in Lagos" description="Get in touch with Allay House in Lagos, Nigeria — questions, collaborations, or help choosing your first treatment." path="/contact" image={imagePaths.contact.hero} />
+    <Seo title="Contact Allay House | Beauty, Wellness & Movement in Lagos" description="Get in touch with Allay House in Lagos, Nigeria — questions, collaborations, or help choosing your first treatment." path="/contact" image={imagePaths.contact.hero} preloadImage={imagePaths.contact.hero} />
     <Breadcrumbs items={[{ label: 'Home', path: '/' }, { label: 'Contact', path: '/contact' }]} />
     <PageHero eyebrow="Contact" title="We would love to hear from you." subtitle="Questions, collaborations, or help choosing your first Allay ritual, we are here." variant="split" image={imagePaths.contact.hero} imageAlt="A warm Allay House welcome" imageCategory="A warm welcome" />
     <section className="contact-layout section">

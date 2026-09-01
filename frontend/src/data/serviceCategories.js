@@ -1,19 +1,21 @@
 export const serviceCategories = [
-  { id: 'spa', name: 'Allay Spa', slug: 'allay-spa', description: 'Restorative rituals for body and mind.' },
-  { id: 'pilates', name: 'Allay Pilates', slug: 'allay-pilates', description: 'Considered movement, strength, and balance.' },
-  { id: 'nails', name: 'Allay Nail Studio', slug: 'allay-nail-studio', description: 'Refined nail care and quiet detail.' },
-  { id: 'lashes', name: 'Allay Lash Studio', slug: 'allay-lash-studio', description: 'Soft definition for brows and lashes.' },
-  { id: 'salon', name: 'Allay Salon', slug: 'allay-salon', description: 'Hair care, styling, and protective artistry.' },
-  { id: 'facials', name: 'Facials', slug: 'facials', description: 'Skin rituals tailored to what you need now.' },
-  { id: 'advanced-skin', name: 'Advanced Skin Treatments', slug: 'advanced-skin-treatments', description: 'Focused treatments guided by skin expertise.' },
-  { id: 'body-beauty', name: 'Body & Beauty', slug: 'body-and-beauty', description: 'Finishing rituals for the whole self.' },
-  { id: 'hair-wigs', name: 'Hair & Wigs', slug: 'hair-and-wigs', description: 'Styling, braiding, and premium human hair wigs.' },
-  { id: 'massage', name: 'Massage', slug: 'massage', description: 'Therapeutic touch in an unhurried setting.' },
-  { id: 'sauna', name: 'Sauna', slug: 'sauna', description: 'Warmth, stillness, and restorative pause.' },
-  { id: 'headspa', name: 'Headspa', slug: 'headspa', description: 'Scalp, hair, and sensory renewal.' },
-  { id: 'waxing', name: 'Waxing', slug: 'waxing', description: 'Precise waxing from brow to full body.' },
-  { id: 'signature-experiences', name: 'Signature Experiences', slug: 'signature-experiences', description: 'Full-day, bridal, and corporate wellness experiences.' },
+  { id: 'spa', name: 'Allay Spa', slug: 'allay-spa', categorySlugs: ['signature-experiences', 'headspa', 'massage', 'body-beauty', 'sauna', 'facials'], description: 'Every spa, skin, massage, hammam, sauna, and head-spa ritual.' },
+  { id: 'signature', name: 'Signature Experiences', slug: 'signature-experiences', description: 'Complete rituals for individuals, couples, friends, brides, and teams.' },
+  { id: 'headspa', name: 'Japanese Head Spa', slug: 'headspa', description: 'Scalp rituals, analysis, hydration, LED therapy, and massage add-ons.' },
+  { id: 'massage', name: 'Massage', slug: 'massage', description: 'Relaxation, therapeutic, couples, and premium massage rituals.' },
+  { id: 'body-beauty', name: 'Hammam & Body', slug: 'body-beauty', description: 'Hammam rituals and focused body-sculpting programmes.' },
+  { id: 'sauna', name: 'Sauna & Steam', slug: 'sauna', description: 'Traditional sauna, steam, cold shower, and massage rituals.' },
+  { id: 'facials', name: 'Facials & Skin', slug: 'facials', description: 'Specialist facials, chemical peels, and microneedling.' },
+  { id: 'pilates', name: 'Allay Pilates', slug: 'allay-pilates', description: 'Group, private, duet, membership, and wellness sessions.' },
+  { id: 'salon', name: 'Allay Salon', slug: 'allay-salon', description: 'Wash, styling, treatments, and colour services.' },
+  { id: 'hair-wigs', name: 'Hair & Wigs', slug: 'hair-wigs', description: 'Wigs, sew-ins, braids, natural hair, locs, and take-outs.' },
+  { id: 'nails', name: 'Allay Nail Studio', slug: 'allay-nail-studio', description: 'Manicures, pedicures, extensions, repairs, and nail art.' },
 ]
 
-export default serviceCategories
+export function categoryMatchesService(category, service) {
+  if (!category) return true
+  const accepted = category.categorySlugs || [category.slug]
+  return accepted.includes(service.categorySlug)
+}
 
+export default serviceCategories

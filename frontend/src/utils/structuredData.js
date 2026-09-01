@@ -38,7 +38,7 @@ export function buildLocalBusinessJsonLd() {
     name: BRAND_NAME,
     url: getSiteUrl('/'),
     logo: getSiteUrl(LOGO_PATH),
-    image: getSiteUrl('/images/allay/home/home-hero-main.jpg'),
+    image: getSiteUrl('/images/allay/home/home-hero-main.webp'),
     sameAs: [siteSocialLinks.instagram.url, siteSocialLinks.tiktok.url, siteSocialLinks.googleMaps.url],
     address: { '@type': 'PostalAddress', addressLocality: 'Lagos', addressCountry: 'NG' },
     hasMap: siteSocialLinks.googleMaps.url,

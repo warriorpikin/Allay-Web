@@ -1,14 +1,11 @@
-import { ArrowLeft, Clock3 } from 'lucide-react'
+import { ArrowLeft, Clock3, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Badge from '../../components/common/Badge'
 import Breadcrumbs from '../../components/common/Breadcrumbs'
 import Button from '../../components/common/Button'
-import ImagePlaceholder from '../../components/common/ImagePlaceholder'
 import Loader from '../../components/common/Loader'
 import Seo from '../../components/common/Seo'
-import { getServiceImage } from '../../data/allayImages'
-import { placeholderServices } from '../../data/placeholderServices'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { ANALYTICS_EVENTS, serviceParams, trackEvent } from '../../services/analytics'
 import { getServiceBySlug } from '../../services/servicesApi'
@@ -19,7 +16,7 @@ import NotFound from './NotFound'
 export default function ServiceDetail() {
   const { slug } = useParams()
   const { isLive } = useSiteMode()
-  const [service, setService] = useState(() => placeholderServices.find((item) => item.slug === slug) || null)
+  const [service, setService] = useState(null)
   const [loading, setLoading] = useState(true)
   const [missing, setMissing] = useState(false)
 
@@ -28,11 +25,7 @@ export default function ServiceDetail() {
     setMissing(false)
     getServiceBySlug(slug)
       .then((data) => setService(data.service))
-      .catch(() => {
-        const fallback = placeholderServices.find((item) => item.slug === slug)
-        setService(fallback || null)
-        setMissing(!fallback)
-      })
+      .catch(() => { setService(null); setMissing(true) })
       .finally(() => setLoading(false))
   }, [slug])
 
@@ -41,40 +34,48 @@ export default function ServiceDetail() {
     trackEvent(ANALYTICS_EVENTS.VIEW_SERVICE, serviceParams(service, { source_section: 'service_detail' }))
   }, [service, loading])
 
-  if (loading && !service) return <Loader label="Opening service details" />
+  if (loading) return <Loader label="Opening service details" />
   if (missing || !service) return <NotFound />
 
-  const image = service.imageUrl || service.image || getServiceImage(service.slug)
+  const image = service.imageUrl || service.image || ''
   const selectPath = isLive ? `/book?service=${service.slug}` : `/waitlist?service=${service.slug}`
   const trackSelect = () => trackEvent(ANALYTICS_EVENTS.SELECT_SERVICE, serviceParams(service, { source_section: 'service_detail' }))
 
   return <>
     <Seo
       title={service.seoTitle || `${service.name} | Allay House`}
-      description={service.seoDescription || service.shortDescription || service.description}
+      description={service.seoDescription || service.description || service.shortDescription}
       path={`/services/${service.slug}`}
-      image={image}
+      image={image || undefined}
       type="product"
       jsonLd={buildServiceJsonLd(service)}
     />
     <Breadcrumbs items={[{ label: 'Home', path: '/' }, { label: 'Services', path: '/services' }, { label: service.category, path: `/services/category/${service.categorySlug || ''}` }, { label: service.name, path: `/services/${service.slug}` }]} />
     <section className="service-detail section">
-    <div className="service-detail__image">
-      <ImagePlaceholder src={image} fallbackSrc={getServiceImage(service.slug)} alt={`${service.name} treatment at Allay House`} variant="arch" loading="eager" fetchPriority="high" width="900" height="1200" />
-    </div>
-    <div className="service-detail__content">
-      <Link className="text-link" to="/services"><ArrowLeft size={15} /> All services</Link>
-      <span className="eyebrow">{service.category}</span>
-      {(service.isCouples || service.isAddon || service.sessionCount) && <div className="service-card__badges">
-        {service.isCouples && <Badge status="paid">Couples experience</Badge>}
-        {service.isAddon && <Badge status="pending">Add-on</Badge>}
-        {service.sessionCount && <Badge status="paid">{service.sessionCount} sessions</Badge>}
-      </div>}
-      <h1>{service.name}</h1>
-      <p>{service.description || service.shortDescription}</p>
-      <div className="service-detail__meta"><span><Clock3 size={17} />{service.durationMinutes} minutes</span><strong>{formatServicePrice(service)}</strong></div>
-      <Button to={selectPath} onClick={trackSelect}>{isLive ? 'Choose this treatment' : 'Join waitlist for this treatment'}</Button>
-    </div>
+      <div className={`service-detail__image ${image ? 'has-image' : ''}`} data-category={service.categorySlug || ''}>
+        {image ? <img src={image} alt={`${service.name} at Allay House`} loading="eager" fetchPriority="high" decoding="async" /> : <div className="service-detail__art" aria-hidden="true">
+          <Sparkles size={22} />
+          <span>{service.category}</span>
+          <strong>{service.serviceGroup || service.name}</strong>
+          <i>Allay House</i>
+        </div>}
+      </div>
+      <div className="service-detail__content">
+        <Link className="text-link" to="/services"><ArrowLeft size={15} /> All services</Link>
+        <span className="eyebrow">{service.serviceGroup || service.category}</span>
+        {(service.isCouples || service.isAddon || service.sessionCount) && <div className="service-card__badges">
+          {service.isCouples && <Badge status="paid">Couples experience</Badge>}
+          {service.isAddon && <Badge status="pending">Add-on</Badge>}
+          {service.sessionCount && <Badge status="paid">{service.sessionCount} sessions</Badge>}
+        </div>}
+        <h1>{service.name}</h1>
+        <p>{service.description || service.shortDescription}</p>
+        <div className="service-detail__meta">
+          {service.durationLabel && <span><Clock3 size={17} />{service.durationLabel}</span>}
+          <strong>{formatServicePrice(service)}</strong>
+        </div>
+        <Button to={selectPath} onClick={trackSelect}>{isLive ? 'Add to booking' : 'Join waitlist for this service'}</Button>
+      </div>
     </section>
   </>
 }

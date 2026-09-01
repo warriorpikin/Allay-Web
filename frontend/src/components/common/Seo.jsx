@@ -2,8 +2,8 @@ import { Helmet } from 'react-helmet-async'
 import { getSiteUrl } from '../../utils/siteUrl'
 
 const DEFAULT_TITLE = 'Allay House | Beauty, Wellness & Movement'
-const DEFAULT_DESCRIPTION = 'Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, lashes, and reformer Pilates.'
-const DEFAULT_IMAGE = '/images/allay/home/home-hero-main.jpg'
+const DEFAULT_DESCRIPTION = 'Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, hair, and reformer Pilates.'
+const DEFAULT_IMAGE = '/images/allay/home/home-hero-main.webp'
 
 // Per-page head/meta management for the SPA. Renders into <head> on the
 // client; the postbuild prerender step (scripts/prerender.mjs) additionally
@@ -19,6 +19,7 @@ export default function Seo({
   noindex = false,
   type = 'website',
   jsonLd,
+  preloadImage,
 }) {
   const resolvedTitle = title || DEFAULT_TITLE
   const canonicalPath = path ?? (typeof window !== 'undefined' ? window.location.pathname : '/')
@@ -28,6 +29,7 @@ export default function Seo({
 
   return <Helmet>
     <title>{resolvedTitle}</title>
+    {preloadImage && <link rel="preload" as="image" href={preloadImage} type={preloadImage.endsWith('.webp') ? 'image/webp' : undefined} fetchPriority="high" />}
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />

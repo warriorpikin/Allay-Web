@@ -35,17 +35,17 @@ test('lists every selected service with a correctly calculated discounted price'
     discountType: 'percent',
     discountValue: 20,
     services: [
-      { name: 'Signature Glow Facial', price: 20000 },
-      { name: 'Sauna Session', price: 15000 },
+      { name: 'Allay House Signature Ritual', price: 195000 },
+      { name: 'Traditional Sauna', price: 30000 },
     ],
   })
-  assert.match(rendered.html, /Signature Glow Facial/)
-  assert.match(rendered.html, /Sauna Session/)
-  // 20000 * 0.8 = 16000, 15000 * 0.8 = 12000
-  assert.match(rendered.html, /16,000/)
-  assert.match(rendered.html, /12,000/)
-  assert.match(rendered.text, /Signature Glow Facial/)
-  assert.match(rendered.text, /Sauna Session/)
+  assert.match(rendered.html, /Allay House Signature Ritual/)
+  assert.match(rendered.html, /Traditional Sauna/)
+  // 195000 * 0.8 = 156000, 30000 * 0.8 = 24000
+  assert.match(rendered.html, /156,000/)
+  assert.match(rendered.html, /24,000/)
+  assert.match(rendered.text, /Allay House Signature Ritual/)
+  assert.match(rendered.text, /Traditional Sauna/)
 })
 
 test('a service with no price shows the name and discount without inventing a price', () => {
@@ -54,9 +54,9 @@ test('a service with no price shows the name and discount without inventing a pr
     couponCode: 'ALLAY-ABC123',
     discountType: 'percent',
     discountValue: 15,
-    services: [{ name: 'Premium Human Hair Wig Consultation', price: 0 }],
+    services: [{ name: 'Bridal Party Nail Package', price: 0 }],
   })
-  assert.match(rendered.html, /Premium Human Hair Wig Consultation/)
+  assert.match(rendered.html, /Bridal Party Nail Package/)
   assert.match(rendered.html, /Price available on request/)
 })
 

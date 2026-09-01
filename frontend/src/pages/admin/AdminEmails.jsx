@@ -31,8 +31,10 @@ const emailTypeOptions = [
 
 const audienceOptions = [
   { value: 'all_users', label: 'All registered users' },
+  { value: 'all_booked_customers', label: 'All booked customers' },
   { value: 'all_waitlist', label: 'All waitlist members' },
   { value: 'selected_users', label: 'Selected registered users' },
+  { value: 'selected_booked_customers', label: 'Selected booked customers' },
   { value: 'selected_waitlist', label: 'Selected waitlist members' },
   { value: 'manual', label: 'Manually entered addresses' },
 ]
@@ -64,6 +66,22 @@ const emptyForm = {
 
 function newIdempotencyKey() {
   return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function isSelectedAudience(audienceType) {
+  return ['selected_users', 'selected_waitlist', 'selected_booked_customers'].includes(audienceType)
+}
+
+function recipientType(audienceType) {
+  if (audienceType === 'selected_waitlist') return 'waitlist'
+  if (audienceType === 'selected_booked_customers') return 'booked_customers'
+  return 'users'
+}
+
+function recipientLabel(audienceType) {
+  if (audienceType === 'selected_waitlist') return 'waitlist members'
+  if (audienceType === 'selected_booked_customers') return 'booked customers'
+  return 'registered users'
 }
 
 export default function AdminEmails() {
@@ -100,9 +118,9 @@ export default function AdminEmails() {
   useEffect(() => { refreshCampaigns() }, [])
 
   useEffect(() => {
-    if (form.audienceType !== 'selected_users' && form.audienceType !== 'selected_waitlist') { setRecipientResults([]); return undefined }
+    if (!isSelectedAudience(form.audienceType)) { setRecipientResults([]); return undefined }
     if (!recipientSearch.trim()) { setRecipientResults([]); return undefined }
-    const type = form.audienceType === 'selected_waitlist' ? 'waitlist' : 'users'
+    const type = recipientType(form.audienceType)
     setSearchingRecipients(true)
     const handle = setTimeout(() => {
       getEmailRecipients({ type, search: recipientSearch.trim() })
@@ -116,6 +134,13 @@ export default function AdminEmails() {
   const update = (field) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  const changeAudience = (event) => {
+    setForm((current) => ({ ...current, audienceType: event.target.value }))
+    setSelectedRecipients([])
+    setRecipientSearch('')
+    setRecipientResults([])
   }
 
   const addRecipient = (recipient) => {
@@ -148,6 +173,7 @@ export default function AdminEmails() {
     ...form,
     selectedUserIds: form.audienceType === 'selected_users' ? selectedRecipients.map((item) => item.id) : [],
     selectedWaitlistIds: form.audienceType === 'selected_waitlist' ? selectedRecipients.map((item) => item.id) : [],
+    selectedCustomerIds: form.audienceType === 'selected_booked_customers' ? selectedRecipients.map((item) => item.id) : [],
   })
 
   const runPreview = () => {
@@ -173,14 +199,16 @@ export default function AdminEmails() {
   }
 
   const recipientCountLabel = () => {
-    if (form.audienceType === 'selected_users' || form.audienceType === 'selected_waitlist') return `${selectedRecipients.length} selected`
+    if (isSelectedAudience(form.audienceType)) return `${selectedRecipients.length} selected`
     if (form.audienceType === 'manual') return `${form.manualEmails.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).length} entered`
-    return form.audienceType === 'all_users' ? 'All registered users' : 'All waitlist members'
+    if (form.audienceType === 'all_users') return 'All registered users'
+    if (form.audienceType === 'all_booked_customers') return 'All booked customers'
+    return 'All waitlist members'
   }
 
   const confirmAndSend = () => {
     if (!form.subject.trim() || !form.bodyText.trim()) { toast.error('Enter a subject and body before sending.'); return }
-    if ((form.audienceType === 'selected_users' || form.audienceType === 'selected_waitlist') && !selectedRecipients.length) { toast.error('Select at least one recipient.'); return }
+    if (isSelectedAudience(form.audienceType) && !selectedRecipients.length) { toast.error('Select at least one recipient.'); return }
     if (form.audienceType === 'manual' && !form.manualEmails.trim()) { toast.error('Enter at least one email address.'); return }
     if (form.replyMode === 'custom' && !form.replyTo.trim()) { toast.error('Enter a custom reply-to address.'); return }
     if (Boolean(form.ctaLabel) !== Boolean(form.ctaUrl)) { toast.error('Provide both a button label and URL, or leave both blank.'); return }
@@ -224,18 +252,18 @@ export default function AdminEmails() {
 
   return <>
     <div className="admin-page-heading">
-      <div><span className="eyebrow">Outgoing mail</span><h1>Emails</h1><p>Compose and send announcements, promotions, and coupon emails to registered users or waitlist members.</p></div>
+      <div><span className="eyebrow">Outgoing mail</span><h1>Emails</h1><p>Compose and send announcements, promotions, and offers to booked customers, registered users, or waitlist members.</p></div>
     </div>
 
     <section className="admin-panel">
       <header><h2>Compose</h2></header>
       <div className="admin-form-grid">
         <Select id="email-type" label="Email type" options={emailTypeOptions} value={form.emailType} onChange={update('emailType')} />
-        <Select id="email-audience" label="Audience" options={audienceOptions} value={form.audienceType} onChange={update('audienceType')} />
+        <Select id="email-audience" label="Audience" options={audienceOptions} value={form.audienceType} onChange={changeAudience} />
       </div>
 
-      {(form.audienceType === 'selected_users' || form.audienceType === 'selected_waitlist') && <div className="admin-email-recipient-picker">
-        <Input id="recipient-search" label={`Search ${form.audienceType === 'selected_waitlist' ? 'waitlist members' : 'registered users'}`} value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="Search by name or email" />
+      {isSelectedAudience(form.audienceType) && <div className="admin-email-recipient-picker">
+        <Input id="recipient-search" label={`Search ${recipientLabel(form.audienceType)}`} value={recipientSearch} onChange={(event) => setRecipientSearch(event.target.value)} placeholder="Search by name, email, or phone" />
         {recipientSearch && <div className="admin-email-recipient-results">
           {searchingRecipients
             ? <Loader label="Searching" />

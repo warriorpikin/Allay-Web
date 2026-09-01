@@ -18,7 +18,7 @@ export default function Dashboard() {
   const waitlist = data?.waitlist || { total: 0, recent: [] }
   const recentBookings = data?.recentBookings || []
   const popularServices = data?.popularServices || []
-  const revenue = data?.revenue || { trackingActive: false, message: 'Revenue tracking will activate once payment confirmation is connected.' }
+  const revenue = data?.revenue || { trackingActive: true, confirmedTotal: 0, unpaidTotal: 0 }
 
   const stats = [
     { label: 'Today’s bookings', value: bookings.today, note: 'Appointments scheduled today' },
@@ -57,9 +57,9 @@ export default function Dashboard() {
     </section>
 
     <section className="admin-panel">
-      <header><div><h2>Revenue</h2><p>Only shown once payment confirmation is reliable.</p></div></header>
+      <header><div><h2>Booking revenue</h2><p>Recorded manually when the team verifies a customer’s payment and confirms the booking.</p></div></header>
       {revenue.trackingActive
-        ? <div className="admin-detail-grid"><article><span>Confirmed revenue</span><strong>{formatCurrency(revenue.confirmedTotal)}</strong></article><article><span>Unpaid booking value</span><strong>{formatCurrency(revenue.unpaidTotal)}</strong></article></div>
+        ? <div className="admin-detail-grid"><article><span>Amount received</span><strong>{formatCurrency(revenue.confirmedTotal)}</strong></article><article><span>Outstanding booking value</span><strong>{formatCurrency(revenue.unpaidTotal)}</strong></article></div>
         : <div className="admin-empty-row">{revenue.message}</div>}
     </section>
   </>

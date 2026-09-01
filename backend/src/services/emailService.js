@@ -5,11 +5,17 @@ import { renderWaitlistCouponEmail } from '../emails/templates/waitlistCouponEma
 import { getOrCreateWaitlistLaunchDiscount } from './discountService.js'
 
 function formatServices(services = []) {
-  return services.map((service) => `<li style="margin-bottom:8px;"><strong>${escapeHtml(service.name || service.service_name)}</strong><br><span>${Number(service.duration_minutes || service.durationMinutes || 0)} minutes / ${formatCurrency(service.price)}</span></li>`).join('')
+  return services.map((service) => {
+    const duration = service.duration_label || service.durationLabel
+    return `<li style="margin-bottom:8px;"><strong>${escapeHtml(service.name || service.service_name)}</strong><br><span>${duration ? `${escapeHtml(duration)} / ` : ''}${formatCurrency(service.price)}</span></li>`
+  }).join('')
 }
 
 function textServices(services = []) {
-  return services.map((service) => `- ${service.name || service.service_name}: ${Number(service.duration_minutes || service.durationMinutes || 0)} minutes / ${formatCurrency(service.price)}`).join('\n')
+  return services.map((service) => {
+    const duration = service.duration_label || service.durationLabel
+    return `- ${service.name || service.service_name}: ${duration ? `${duration} / ` : ''}${formatCurrency(service.price)}`
+  }).join('\n')
 }
 
 async function logEmail({ recipient, subject, emailType, status, errorMessage = null, relatedWaitlistId = null, relatedBookingId = null }) {
@@ -70,45 +76,45 @@ export async function sendEmail({ to, subject, html, text, emailType, from, repl
   }
 }
 
-function bookingConfirmationHtml({ booking, services = [] }) {
+function bookingRequestHtml({ booking, services = [] }) {
   const privacyUrl = `${env.FRONTEND_URL.replace(/\/+$/, '')}/privacy-policy`
   const termsUrl = `${env.FRONTEND_URL.replace(/\/+$/, '')}/terms-of-use`
   return `
     <div style="font-family:Georgia,serif;background:#F5F0EA;padding:32px;color:#372418;">
       <div style="max-width:560px;margin:0 auto;background:#F8F3ED;border-radius:18px;padding:32px;">
-        <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Booking confirmed</p>
-        <h1 style="font-size:28px;font-weight:500;margin:0 0 16px;">Your Allay House session is booked.</h1>
-        <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Hello ${escapeHtml(booking.customer_name)}, your booking details are confirmed below. Please contact Allay House if anything looks incorrect.</p>
+        <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Booking request received</p>
+        <h1 style="font-size:28px;font-weight:500;margin:0 0 16px;">Your preferred session is saved.</h1>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Hello ${escapeHtml(booking.customer_name)}, we received the request below. It remains pending until Allay House confirms availability, the final price, and payment on WhatsApp.</p>
         <div style="border:1px solid #DFD4C8;border-radius:14px;padding:18px;margin-bottom:18px;">
           <p><strong>Reference:</strong> ${escapeHtml(booking.booking_reference)}</p>
           <p><strong>Date:</strong> ${escapeHtml(booking.appointment_date)}</p>
           <p><strong>Time:</strong> ${escapeHtml(String(booking.start_time).slice(0, 5))}</p>
           <p><strong>Total duration:</strong> ${Number(booking.total_duration_minutes || 0)} minutes</p>
-          <p><strong>Total:</strong> ${formatCurrency(booking.total_amount)}</p>
+          <p><strong>Estimated total:</strong> ${formatCurrency(booking.total_amount)}</p>
         </div>
         <p style="font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:#7F6D5C;margin:0 0 8px;">Selected services</p>
         <ul style="padding-left:18px;margin:0 0 18px;">${formatServices(services)}</ul>
-        <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">Please arrive a few minutes early so we can welcome you calmly. If you need to change your booking, contact Allay House using the details on the website.</p>
+        <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">Continue the conversation on WhatsApp and keep your booking reference nearby. Please do not treat this request as confirmed until the Allay House team approves it.</p>
         <p style="font-size:12px;line-height:1.6;margin:0;"><a href="${privacyUrl}" style="color:#5F4A3A;">Privacy Policy</a> / <a href="${termsUrl}" style="color:#5F4A3A;">Terms of Use</a></p>
       </div>
     </div>
   `
 }
 
-function bookingConfirmationText({ booking, services = [] }) {
-  return `Your Allay House session is booked.
+function bookingRequestText({ booking, services = [] }) {
+  return `Your Allay House booking request was received.
 
 Reference: ${booking.booking_reference}
 Name: ${booking.customer_name}
 Date: ${booking.appointment_date}
 Time: ${String(booking.start_time).slice(0, 5)}
 Duration: ${Number(booking.total_duration_minutes || 0)} minutes
-Total: ${formatCurrency(booking.total_amount)}
+Estimated total: ${formatCurrency(booking.total_amount)}
 
 Services:
 ${textServices(services)}
 
-Please contact Allay House if any detail is incorrect.`
+This request is pending. Allay House will confirm availability, the final price, and payment on WhatsApp.`
 }
 
 function adminBookingHtml({ booking, services = [] }) {
@@ -116,11 +122,11 @@ function adminBookingHtml({ booking, services = [] }) {
   return `
     <div style="font-family:Arial,sans-serif;background:#F5F0EA;padding:28px;color:#372418;">
       <div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;padding:28px;">
-        <h1 style="margin:0 0 14px;">New Allay House booking</h1>
+        <h1 style="margin:0 0 14px;">New pending Allay House booking</h1>
         <p><strong>Reference:</strong> ${escapeHtml(booking.booking_reference)}</p>
         <p><strong>Customer:</strong> ${escapeHtml(booking.customer_name)} / ${escapeHtml(booking.customer_email)} / ${escapeHtml(booking.customer_phone)}</p>
         <p><strong>Date and time:</strong> ${escapeHtml(booking.appointment_date)} at ${escapeHtml(String(booking.start_time).slice(0, 5))}</p>
-        <p><strong>Total:</strong> ${formatCurrency(booking.total_amount)}</p>
+        <p><strong>Estimated total:</strong> ${formatCurrency(booking.total_amount)}</p>
         ${booking.customer_note ? `<p><strong>Customer note:</strong> ${escapeHtml(booking.customer_note)}</p>` : ''}
         <ul>${formatServices(services)}</ul>
         <p><a href="${adminUrl}">Open booking in admin</a></p>
@@ -130,12 +136,12 @@ function adminBookingHtml({ booking, services = [] }) {
 }
 
 function adminBookingText({ booking, services = [] }) {
-  return `New Allay House booking
+  return `New pending Allay House booking
 
 Reference: ${booking.booking_reference}
 Customer: ${booking.customer_name} / ${booking.customer_email} / ${booking.customer_phone}
 Date and time: ${booking.appointment_date} at ${String(booking.start_time).slice(0, 5)}
-Total: ${formatCurrency(booking.total_amount)}
+Estimated total: ${formatCurrency(booking.total_amount)}
 Customer note: ${booking.customer_note || '-'}
 
 Services:
@@ -145,10 +151,10 @@ ${textServices(services)}`
 export async function sendBookingEmails({ booking, services = [] }) {
   const customerEmail = await sendEmail({
     to: booking.customer_email,
-    subject: `Allay House booking confirmed: ${booking.booking_reference}`,
-    html: bookingConfirmationHtml({ booking, services }),
-    text: bookingConfirmationText({ booking, services }),
-    emailType: 'booking_confirmation',
+    subject: `Allay House booking request received: ${booking.booking_reference}`,
+    html: bookingRequestHtml({ booking, services }),
+    text: bookingRequestText({ booking, services }),
+    emailType: 'booking_request_received',
     relatedBookingId: booking.id,
   })
 
@@ -163,6 +169,60 @@ export async function sendBookingEmails({ booking, services = [] }) {
   }) : { sent: false }
 
   return { customer: customerEmail.sent, admin: adminEmail.sent }
+}
+
+function confirmedBookingHtml({ booking, services = [] }) {
+  const balance = Math.max(Number(booking.total_amount || 0) - Number(booking.amount_paid || 0), 0)
+  return `
+    <div style="font-family:Georgia,serif;background:#F5F0EA;padding:32px;color:#372418;">
+      <div style="max-width:560px;margin:0 auto;background:#F8F3ED;border-radius:18px;padding:32px;">
+        <p style="letter-spacing:0.08em;text-transform:uppercase;font-size:12px;color:#7F6D5C;margin:0 0 12px;">Booking confirmed</p>
+        <h1 style="font-size:28px;font-weight:500;margin:0 0 16px;">Your Allay House visit is confirmed.</h1>
+        <p style="font-size:15px;line-height:1.6;margin:0 0 18px;">Hello ${escapeHtml(booking.customer_name)}, the Allay House team has approved your appointment.</p>
+        <div style="border:1px solid #DFD4C8;border-radius:14px;padding:18px;margin-bottom:18px;">
+          <p><strong>Booking code:</strong> ${escapeHtml(booking.booking_reference)}</p>
+          <p><strong>Date:</strong> ${escapeHtml(booking.appointment_date)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(String(booking.start_time).slice(0, 5))}</p>
+          <p><strong>Final total:</strong> ${formatCurrency(booking.total_amount)}</p>
+          <p><strong>Amount paid:</strong> ${formatCurrency(booking.amount_paid)}</p>
+          ${balance ? `<p><strong>Balance:</strong> ${formatCurrency(balance)}</p>` : ''}
+        </div>
+        <p style="font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:#7F6D5C;margin:0 0 8px;">Confirmed services</p>
+        <ul style="padding-left:18px;margin:0 0 18px;">${formatServices(services)}</ul>
+        <p style="font-size:14px;line-height:1.6;margin:0;">Please arrive 15 minutes early. Keep this booking code available when you arrive or contact Allay House on WhatsApp if anything changes.</p>
+      </div>
+    </div>
+  `
+}
+
+function confirmedBookingText({ booking, services = [] }) {
+  const balance = Math.max(Number(booking.total_amount || 0) - Number(booking.amount_paid || 0), 0)
+  return `Your Allay House visit is confirmed.
+
+Booking code: ${booking.booking_reference}
+Name: ${booking.customer_name}
+Date: ${booking.appointment_date}
+Time: ${String(booking.start_time).slice(0, 5)}
+Final total: ${formatCurrency(booking.total_amount)}
+Amount paid: ${formatCurrency(booking.amount_paid)}
+Balance: ${formatCurrency(balance)}
+
+Services:
+${textServices(services)}
+
+Please arrive 15 minutes early.`
+}
+
+export async function sendConfirmedBookingEmail({ booking, services = [] }) {
+  const result = await sendEmail({
+    to: booking.customer_email,
+    subject: `Allay House booking confirmed: ${booking.booking_reference}`,
+    html: confirmedBookingHtml({ booking, services }),
+    text: confirmedBookingText({ booking, services }),
+    emailType: 'booking_confirmed',
+    relatedBookingId: booking.id,
+  })
+  return { customer: result.sent }
 }
 
 function waitlistConfirmationHtml({ services }) {

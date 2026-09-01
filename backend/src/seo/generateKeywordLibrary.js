@@ -15,26 +15,14 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { memberships as officialMemberships, newCategories, officialServices } from '../db/seedData/officialCatalogue.js'
+import { catalogueCategories, memberships as officialMemberships, officialServices } from '../db/seedData/officialCatalogue.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const CITY = 'Lagos'
 const COUNTRY = 'Nigeria'
 
-const existingCategories = [
-  { name: 'Facials', slug: 'facials' },
-  { name: 'Massage', slug: 'massage' },
-  { name: 'Sauna', slug: 'sauna' },
-  { name: 'Headspa', slug: 'headspa' },
-  { name: 'Allay Pilates', slug: 'allay-pilates' },
-  { name: 'Allay Lash Studio', slug: 'allay-lash-studio' },
-  { name: 'Allay Salon', slug: 'allay-salon' },
-  { name: 'Hair & Wigs', slug: 'hair-wigs' },
-  { name: 'Allay Nail Studio', slug: 'allay-nail-studio' },
-  { name: 'Body & Beauty', slug: 'body-beauty' },
-]
-const allCategories = [...existingCategories, ...newCategories.map((c) => ({ name: c.name, slug: c.slug }))]
+const allCategories = catalogueCategories.map((category) => ({ name: category.name, slug: category.slug }))
 
 const entries = []
 const seenPhrases = new Set()
@@ -63,7 +51,7 @@ function categoryPage(slug) {
   'Allay House contact', 'Allay House phone number', 'Allay House location', 'Allay House address',
   'Allay House opening hours', 'Allay House reviews', 'Allay House Instagram', 'Allay House TikTok',
   'Allay House membership', 'Allay House head spa', 'Allay House Pilates', 'Allay House salon',
-  'Allay House nail studio', 'Allay House lash studio', 'Allay House massage', 'Allay House hammam',
+  'Allay House nail studio', 'Allay House hair lounge', 'Allay House massage', 'Allay House hammam',
   'book Allay House', 'Allay House waitlist', 'Allay House launch', 'Allay House about us',
   'what is Allay House', 'Allay House Lagos Nigeria', 'Allay House sanctuary',
 ].forEach((phrase) => add({ phrase, cluster: 'Allay House branded searches', intent: 'navigational', targetPage: '/', priority: 'primary' }))
@@ -133,7 +121,7 @@ function addCategoryCluster({ categorySlug, clusterName, hand = [], targetOverri
         phrase: `${service.name} ${modifier}`,
         cluster: clusterName,
         intent,
-        targetPage: servicePage(service.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')),
+        targetPage: servicePage(service.slug),
         priority: 'secondary',
         locationModifier: modifier.includes(CITY) ? CITY : null,
         relatedService: service.name,
@@ -157,7 +145,7 @@ addCategoryCluster({
   'Japanese head spa near me', 'Japanese head spa benefits', 'Japanese head spa treatment Lagos',
   'Japanese scalp massage Lagos', 'signature Japanese head spa', 'best Japanese head spa Lagos',
   'Japanese head spa price Lagos',
-].forEach((phrase) => add({ phrase, cluster: 'Japanese head-spa searches', intent: 'commercial', targetPage: servicePage('signature-japanese-head-spa'), priority: 'primary', locationModifier: CITY, relatedService: 'Signature Japanese Head Spa' }))
+].forEach((phrase) => add({ phrase, cluster: 'Japanese head-spa searches', intent: 'commercial', targetPage: servicePage('signature-head-spa'), priority: 'primary', locationModifier: CITY, relatedService: 'Signature Head Spa' }))
 
 ;[
   'scalp treatment Lagos', 'scalp treatment for hair growth Lagos', 'scalp detox Lagos',
@@ -189,7 +177,7 @@ addCategoryCluster({
   'protective braiding styles Lagos', 'shoulder length knotless braids Lagos', 'long knotless braids Lagos',
   'cornrows Lagos', 'cornrow styling Lagos', 'braiding salon Victoria Island', 'braiding salon Lekki',
   'how much are knotless braids in Lagos',
-].forEach((phrase) => add({ phrase, cluster: 'Braiding searches', intent: 'commercial', targetPage: categoryPage('allay-salon'), priority: 'primary', locationModifier: CITY }))
+].forEach((phrase) => add({ phrase, cluster: 'Braiding searches', intent: 'commercial', targetPage: categoryPage('hair-wigs'), priority: 'primary', locationModifier: CITY }))
 
 ;[
   'wig install Lagos', 'seamless wig install Lagos', 'wig installation near me Lagos',
@@ -267,22 +255,17 @@ addCategoryCluster({
 ].forEach((phrase) => add({ phrase, cluster: 'Wood-therapy searches', intent: 'informational', targetPage: servicePage('full-body-wood-therapy'), priority: 'secondary', locationModifier: CITY, relatedService: 'Full Body Wood Therapy' }))
 
 // ---------------------------------------------------------------------
-// 20-21: facials & hydrafacial
+// 20-21: facials and advanced skin treatments
 // ---------------------------------------------------------------------
 addCategoryCluster({
   categorySlug: 'facials', clusterName: 'Facial searches', priority: 'primary', modifiers: 'core',
   hand: [
     'facial spa Lagos', 'best facial in Lagos', 'hydrating facial Lagos', 'deep cleansing facial Lagos',
-    'facial near me Lagos', 'facial for glowing skin Lagos', 'oxygen facial Lagos',
-    'hydra jelly facial Lagos', 'facial treatment Lagos', 'anti aging facial Lagos', 'acne facial Lagos',
+    'facial near me Lagos', 'facial for glowing skin Lagos', 'chemical peel Lagos',
+    'microneedling Lagos', 'facial treatment Lagos', 'anti ageing facial Lagos', 'pigmentation facial Lagos',
     'facial spa Victoria Island',
   ],
 })
-
-;[
-  'Hydrafacial Lagos', 'Hydrafacial near me', 'Hydrafacial price Lagos', 'what is a Hydrafacial',
-  'Hydrafacial benefits', 'best Hydrafacial in Lagos', 'Hydrafacial treatment Lagos', 'Hydrafacial vs facial',
-].forEach((phrase) => add({ phrase, cluster: 'Hydrafacial searches', intent: 'commercial', targetPage: servicePage('hydrafacial'), priority: 'primary', locationModifier: CITY, relatedService: 'Hydrafacial' }))
 
 // ---------------------------------------------------------------------
 // 22-25: nails
@@ -313,36 +296,6 @@ addCategoryCluster({
 ].forEach((phrase) => add({ phrase, cluster: 'Pedicure searches', intent: 'commercial', targetPage: servicePage('pedicure'), priority: 'primary', locationModifier: CITY, relatedService: 'Pedicure' }))
 
 // ---------------------------------------------------------------------
-// 26-27: lashes & brows
-// ---------------------------------------------------------------------
-addCategoryCluster({
-  categorySlug: 'allay-lash-studio', clusterName: 'Lash searches', priority: 'primary',
-  hand: [
-    'lash studio Lagos', 'lash extensions Lagos', 'classic lashes Lagos', 'volume lashes Lagos',
-    'hybrid lashes Lagos', 'best lash studio Lagos', 'lash extensions near me Lagos', 'mega volume lashes Lagos',
-    'wispy lashes Lagos', 'lash refill Lagos',
-  ],
-})
-
-;[
-  'brow shaping Lagos', 'brow lamination Lagos', 'brow tint Lagos', 'eyebrow shaping near me Lagos',
-  'brow lamination and tint Lagos', 'best brow studio Lagos', 'brow lamination price Lagos',
-  'natural brow shaping Lagos',
-].forEach((phrase) => add({ phrase, cluster: 'Brow searches', intent: 'commercial', targetPage: categoryPage('allay-lash-studio'), priority: 'secondary', locationModifier: CITY }))
-
-// ---------------------------------------------------------------------
-// 28: waxing
-// ---------------------------------------------------------------------
-addCategoryCluster({
-  categorySlug: 'waxing', clusterName: 'Waxing searches', priority: 'primary',
-  hand: [
-    'waxing salon Lagos', 'Brazilian wax Lagos', 'full body wax Lagos', 'waxing near me Lagos',
-    'best waxing salon Lagos', 'underarm wax Lagos', 'leg wax Lagos', 'eyebrow wax Lagos',
-    'waxing spa Lagos', 'Brazilian wax price Lagos',
-  ],
-})
-
-// ---------------------------------------------------------------------
 // 29-30: pilates
 // ---------------------------------------------------------------------
 addCategoryCluster({
@@ -368,7 +321,7 @@ addCategoryCluster({
   'wellness membership Lagos', 'spa membership Lagos', 'monthly spa membership Lagos',
   'beauty membership Lagos', 'best wellness membership Lagos', 'spa subscription Lagos',
   'wellness membership plans Lagos', 'monthly wellness plan Lagos', 'join a spa membership Lagos',
-  'unlimited Pilates membership Lagos', 'wellness membership benefits', 'spa membership price Lagos',
+  'Pilates membership Lagos', 'wellness membership benefits', 'spa membership price Lagos',
   'membership with priority booking Lagos', 'the Reset membership Allay House', 'the Ritual membership Allay House',
   'the Sanctuary membership Allay House',
 ].forEach((phrase) => add({ phrase, cluster: 'Wellness-membership searches', intent: 'commercial', targetPage: '/memberships', priority: 'primary', locationModifier: CITY }))
@@ -378,21 +331,21 @@ addCategoryCluster({
   'wedding day spa package Lagos', 'bridal wellness package Lagos', 'bride to be spa day Lagos',
   'pre wedding spa Lagos', 'bridal party spa Lagos', 'bridal glam prep spa Lagos', 'bridal skin prep Lagos',
   'wedding morning spa package Lagos', 'bridal spa near me',
-].forEach((phrase) => add({ phrase, cluster: 'Bridal wellness searches', intent: 'commercial', targetPage: servicePage('bridal-glow-experience'), priority: 'primary', locationModifier: CITY, relatedService: 'Bridal Glow Experience' }))
+].forEach((phrase) => add({ phrase, cluster: 'Bridal wellness searches', intent: 'commercial', targetPage: servicePage('bridal-wellness-ritual'), priority: 'primary', locationModifier: CITY, relatedService: 'Bridal Wellness Ritual' }))
 
 ;[
   'corporate wellness Lagos', 'corporate wellness retreat Lagos', 'office wellness day Lagos',
   'team wellness experience Lagos', 'corporate wellness package Lagos', 'workplace wellness Lagos',
   'corporate spa day Lagos', 'corporate wellness Pilates Lagos', 'corporate wellness talk Lagos',
   'team building wellness Lagos', 'corporate wellness per person Lagos',
-].forEach((phrase) => add({ phrase, cluster: 'Corporate wellness searches', intent: 'commercial', targetPage: servicePage('corporate-wellness-retreat'), priority: 'primary', locationModifier: CITY, relatedService: 'Corporate Wellness Retreat' }))
+].forEach((phrase) => add({ phrase, cluster: 'Corporate wellness searches', intent: 'commercial', targetPage: servicePage('corporate-wellness-experience'), priority: 'primary', locationModifier: CITY, relatedService: 'Corporate Wellness Experience' }))
 
 ;[
-  'spa day package Lagos', 'full day spa package Lagos', 'signature spa experience Lagos',
-  'spa package deals Lagos', 'full day wellness reset Lagos', 'spa package for two Lagos',
+  'spa day package Lagos', 'wellness spa package Lagos', 'signature spa experience Lagos',
+  'spa package deals Lagos', 'ultimate wellness escape Lagos', 'spa package for two Lagos',
   'best spa packages Lagos', 'spa day near me Lagos', 'all inclusive spa day Lagos',
   'spa and Pilates package Lagos',
-].forEach((phrase) => add({ phrase, cluster: 'Spa package searches', intent: 'commercial', targetPage: servicePage('allay-house-full-day-reset'), priority: 'primary', locationModifier: CITY, relatedService: 'Allay House Full Day Reset' }))
+].forEach((phrase) => add({ phrase, cluster: 'Spa package searches', intent: 'commercial', targetPage: servicePage('allay-house-signature-ritual'), priority: 'primary', locationModifier: CITY, relatedService: 'Allay House Signature Ritual' }))
 
 // ---------------------------------------------------------------------
 // 35-36: price-intent & booking-intent (category-wide)
@@ -424,28 +377,28 @@ for (const category of allCategories) {
 // ---------------------------------------------------------------------
 ;[
   'what is a head spa treatment', 'what is included in a bridal spa package',
-  'how long does a Brazilian wax take', 'how much is a full day spa experience in Lagos',
+  'what is included in a signature spa ritual', 'how much is a wellness spa experience in Lagos',
   'what should I wear to a Pilates class', 'how often should I get a head spa treatment',
-  'what is the difference between classic and volume lashes', 'how long do BIAB nails last',
+  'what is the difference between BIAB and hard gel', 'how long do BIAB nails last',
   'what is wood therapy used for', 'how much does a reformer Pilates membership cost in Lagos',
   'what happens during a hammam treatment', 'how do I choose a spa membership plan',
-  'what is a hydra jelly facial', 'how long does a knotless braid appointment take',
+  'what is a chemical peel', 'how long does a knotless braid appointment take',
   'what to expect at a Moroccan hammam', 'how much is a wig install in Lagos',
   'what is EMSZero body contouring', 'how do I prepare for a facial appointment',
   'what is included in a corporate wellness retreat', 'how far in advance should I book bridal spa services',
-  'is Hydrafacial safe for sensitive skin', 'what is a lymphatic drainage massage good for',
+  'is a lactic peel suitable for sensitive skin', 'what is a lymphatic drainage massage good for',
   'how much should I tip at a spa in Lagos', 'what is the best spa membership for beginners',
   'how do reformer Pilates classes work', 'what is the difference between BIAB and acrylic nails',
-  'how long does a full set of acrylics take', 'what is a soft sculpt body treatment',
-  'how many sessions do I need for body contouring', 'what is included in the Allay House Full Day Reset',
+  'how long does a full set of acrylics take', 'what is an EMS body sculpt treatment',
+  'how many sessions do I need for body contouring', 'what is included in the Allay House Signature Ritual',
 ].forEach((phrase) => add({ phrase, cluster: 'Question-based long-tail searches', intent: 'informational', targetPage: '/services', priority: 'secondary' }))
 
 // ---------------------------------------------------------------------
 // 40: comparison and informational
 // ---------------------------------------------------------------------
 ;[
-  'Hydrafacial vs regular facial', 'reformer Pilates vs mat Pilates', 'BIAB vs acrylic nails',
-  'classic vs volume lashes', 'knotless braids vs box braids', 'Swedish massage vs deep tissue massage',
+  'chemical peel vs specialist facial', 'reformer Pilates vs mat Pilates', 'BIAB vs acrylic nails',
+  'hard gel vs polygel nails', 'knotless braids vs traditional braids', 'Swedish massage vs deep tissue massage',
   'hammam vs sauna', 'wood therapy vs lymphatic drainage massage', 'gel polish vs regular polish',
   'micro braids vs knotless braids', 'head spa vs regular hair wash', 'spa membership vs pay per visit',
   'BIAB overlay vs BIAB extensions', 'hot stone massage vs deep tissue massage',
@@ -471,7 +424,7 @@ for (const membership of officialMemberships) {
   'beauty and wellness bookings Nigeria', 'luxury wellness services Nigeria', 'spa membership Nigeria',
   'Nigerian spa naira price list', 'top wellness brand Nigeria', 'best beauty and wellness spa Nigeria',
   'spa treatment prices Nigeria naira', 'Lagos Nigeria spa and wellness', 'reformer Pilates Nigeria',
-  'head spa Nigeria', 'Hydrafacial Nigeria price', 'bridal spa Nigeria', 'corporate wellness Nigeria',
+  'head spa Nigeria', 'chemical peel Nigeria price', 'bridal spa Nigeria', 'corporate wellness Nigeria',
   'luxury nail studio Nigeria', 'wellness membership naira price', 'best hammam Nigeria',
   'Allay House naira price list', 'spa gift voucher Nigeria', 'wellness retreat Nigeria',
   'beauty salon Nigeria prices', 'day spa Nigeria', 'Pilates studio Nigeria',

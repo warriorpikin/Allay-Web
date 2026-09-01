@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { createBookingRequest } from '../services/bookingService.js'
+import { createBookingRequest, markWhatsAppHandoff } from '../services/bookingService.js'
 import { normalizeBookingTime } from '../utils/timeSlots.js'
 
 const bookingSchema = z.object({
@@ -23,17 +23,33 @@ export async function createBooking(req, res, next) {
     if (!parsed.success) return res.status(400).json({ message: 'Enter valid booking details.' })
     const preferredTime = normalizeBookingTime(parsed.data.preferredTime)
     if (!preferredTime) return res.status(400).json({ message: 'Enter a valid preferred time.' })
-    const result = await createBookingRequest({ ...parsed.data, preferredTime })
+    const result = await createBookingRequest(
+      { ...parsed.data, preferredTime },
+      { authenticatedCustomerId: req.customerId || null },
+    )
     return res.status(201).json({
       bookingReference: result.bookingReference,
       booking: result.booking,
       services: result.services,
       confirmation: result.confirmation,
       emailStatus: result.emailStatus,
+      whatsapp: result.whatsapp,
     })
   } catch (error) {
     if (error.status === 403) return res.status(403).json({ message: error.message })
     if (error.status === 409) return res.status(409).json({ message: error.message, reason: error.reason, suggestedTimes: error.suggestedTimes || [] })
+    return next(error)
+  }
+}
+
+export async function recordWhatsAppHandoff(req, res, next) {
+  try {
+    const reference = String(req.params.reference || '').trim()
+    if (!/^ALLAY-[A-Z0-9-]{8,32}$/i.test(reference)) return res.status(400).json({ message: 'Enter a valid booking reference.' })
+    const booking = await markWhatsAppHandoff(reference)
+    if (!booking) return res.status(404).json({ message: 'Booking not found.' })
+    return res.json({ booking })
+  } catch (error) {
     return next(error)
   }
 }

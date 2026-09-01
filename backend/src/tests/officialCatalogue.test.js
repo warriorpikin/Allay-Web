@@ -1,111 +1,83 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { assertNoDuplicateSlugs, slugify } from '../scripts/importOfficialCatalogue.js'
-import { legacySeededServiceSlugs, memberships, newCategories, officialServices } from '../db/seedData/officialCatalogue.js'
+import { assertNoDuplicateSlugs } from '../scripts/importOfficialCatalogue.js'
+import { catalogueCategories, memberships, officialServices } from '../db/seedData/officialCatalogue.js'
 
-// Pure data-level validation — no database connection required. Catches
-// transcription errors in officialCatalogue.js (wrong price, wrong count,
-// duplicate slug, unknown category) before anyone ever runs the import.
+const KNOWN_CATEGORY_SLUGS = new Set(catalogueCategories.map((category) => category.slug))
 
-const KNOWN_CATEGORY_SLUGS = new Set([
-  'facials', 'massage', 'sauna', 'headspa', 'allay-pilates', 'allay-lash-studio',
-  'allay-salon', 'hair-wigs', 'allay-nail-studio', 'body-beauty',
-  ...newCategories.map((c) => c.slug),
-])
-
-test('official catalogue contains exactly 125 entries', () => {
-  assert.equal(officialServices.length, 125)
+test('official August 2026 catalogue contains exactly 384 bookable entries', () => {
+  assert.equal(officialServices.length, 384)
 })
 
 test('official catalogue has no duplicate slugs', () => {
   assert.doesNotThrow(() => assertNoDuplicateSlugs())
 })
 
-test('every service references a known category slug', () => {
+test('every service references a supplied catalogue category', () => {
   const unknown = officialServices.filter((service) => !KNOWN_CATEGORY_SLUGS.has(service.categorySlug))
-  assert.deepEqual(unknown.map((s) => s.name), [])
+  assert.deepEqual(unknown.map((service) => service.name), [])
 })
 
-test('every service has a positive price and duration', () => {
+test('every service has a positive price and internal scheduling duration', () => {
   const invalid = officialServices.filter((service) => !(service.price > 0) || !(service.duration > 0))
-  assert.deepEqual(invalid.map((s) => s.name), [])
+  assert.deepEqual(invalid.map((service) => service.name), [])
 })
 
-test('new categories are exactly Waxing and Signature Experiences', () => {
-  assert.deepEqual(newCategories.map((c) => c.slug).sort(), ['signature-experiences', 'waxing'])
+test('advertised durations are only shown when supplied explicitly', () => {
+  const express = officialServices.find((service) => service.name === 'Express Head Spa')
+  const swedish90 = officialServices.find((service) => service.name === 'Swedish Massage (90 mins)')
+  const deepTissue = officialServices.find((service) => service.name === 'Deep Tissue Massage')
+  assert.equal(express.durationLabel, '30 mins')
+  assert.equal(swedish90.durationLabel, '90 mins')
+  assert.equal(deepTissue.durationLabel, null)
 })
 
-test('legacy seeded slugs list has exactly the 13 originally-seeded services', () => {
-  assert.equal(legacySeededServiceSlugs.length, 13)
-  assert.equal(new Set(legacySeededServiceSlugs).size, 13)
-})
-
-test('legacy/official slug collisions are known and match the import script\'s exclusion list', () => {
-  // "Deep Tissue Massage" in the official catalogue slugifies to the same
-  // value as the old legacy service of the same name. importOfficialCatalogue.js
-  // must treat that slug as a live official service, never retire it as
-  // legacy — that bug shipped once already (the service was silently
-  // archived after being updated). If this assertion ever picks up a new
-  // collision, confirm the script's `officialSlugs` exclusion in step 3
-  // still covers it before running the import.
-  const officialSlugs = new Set(officialServices.map((service) => slugify(service.name)))
-  const collisions = legacySeededServiceSlugs.filter((slug) => officialSlugs.has(slug))
-  assert.deepEqual(collisions, ['deep-tissue-massage'])
-})
-
-test('spot-check official prices match the supplied catalogue', () => {
-  const bySlug = new Map(officialServices.map((service) => [slugify(service.name), service]))
-  const expected = {
-    'express-head-spa': 45000,
-    'signature-japanese-head-spa': 70000,
-    'deluxe-head-spa-steam-shoulder-massage': 105000,
-    'couples-head-spa-experience': 215000,
-    'knotless-braids-without-extensions': 70000,
-    'seamless-wig-install': 45000,
-    'custom-wig-coloring': 195000,
-    'hydrafacial': 122000,
-    'brazilian-wax': 26000,
-    'full-body-wax': 97000,
-    'allay-house-full-day-reset': 250000,
-    'bridal-glow-experience': 320000,
-    'corporate-wellness-retreat': 150000,
-  }
-  for (const [slug, price] of Object.entries(expected)) {
-    assert.ok(bySlug.has(slug), `missing expected service with slug "${slug}"`)
-    assert.equal(bySlug.get(slug).price, price, `price mismatch for "${slug}"`)
-  }
-})
-
-test('knotless and micro braids are categorised under Hair & Wigs, not Allay Salon', () => {
-  const braidNames = [
-    'Knotless Braids Without Extensions', 'Knotless Braids - Shoulder Length', 'Knotless Braids - Mid Back Length',
-    'Knotless Braids - Long Length', 'Knotless Braids - Extra Long Length',
-    'Micro Braids - Shoulder Length', 'Micro Braids - Mid Back Length', 'Micro Braids - Long Length', 'Micro Braids - Extra Long Length',
-  ]
+test('spot-check prices across every supplied price-list division', () => {
   const byName = new Map(officialServices.map((service) => [service.name, service]))
-  for (const name of braidNames) {
+  const expected = {
+    'Allay House Signature Ritual': 195000,
+    'Express Head Spa': 48000,
+    'Swedish Massage (60 mins)': 68000,
+    'Traditional Hammam': 75000,
+    'EMS ZeroSculpt': 98000,
+    'Melanostop Peel': 160000,
+    'Microneedling (Pigmentation)': 225000,
+    'Wash & Blow Dry': 15000,
+    'Balayage': 135000,
+    'Frontal Wig Install': 60000,
+    'Knotless Braids — Waist Length': 90000,
+    'Group Class (Minimum 4 People)': 25000,
+    'Allay Reset': 180000,
+    'Russian Manicure + BIAB (Extensions)': 54500,
+    'Therapeutic (Chinese) Pedicure': 46000,
+    'Bridal Nail Experience': 85000,
+  }
+  for (const [name, price] of Object.entries(expected)) {
     assert.ok(byName.has(name), `missing expected service "${name}"`)
-    assert.equal(byName.get(name).categorySlug, 'hair-wigs', `"${name}" should be categorised under hair-wigs`)
+    assert.equal(byName.get(name).price, price, `price mismatch for "${name}"`)
   }
 })
 
-test('ranged and "from" pricing is preserved for known examples', () => {
-  const bySlug = new Map(officialServices.map((service) => [slugify(service.name), service]))
-  const seamlessWig = bySlug.get('seamless-wig-install')
-  assert.equal(seamlessWig.priceFrom, 45000)
-  assert.equal(seamlessWig.priceTo, 80000)
-
-  const cornrows = bySlug.get('cornrows')
-  assert.equal(cornrows.priceIsFrom, true)
-  assert.equal(cornrows.priceFrom, 15000)
-
-  const corporateWellness = bySlug.get('corporate-wellness-retreat')
-  assert.equal(corporateWellness.priceUnitLabel, 'per person')
+test('ranged, from, per-unit, and multi-option prices are preserved', () => {
+  const byName = new Map(officialServices.map((service) => [service.name, service]))
+  assert.equal(byName.get('Private Pilates Session').priceFrom, 65000)
+  assert.equal(byName.get('Private Pilates Session').priceTo, 75000)
+  assert.equal(byName.get('Bridal Hair Styling').priceIsFrom, true)
+  assert.equal(byName.get('Corporate Wellness Experience').priceUnitLabel, 'per person')
+  assert.deepEqual(byName.get('Goddess Braids — Bob Length').priceOptions, [48000, 35000, 30000])
+  assert.deepEqual(byName.get('Knotless Braids — Bob Length').priceOptions, [45000, 42000, 26000])
 })
 
-test('official catalogue defines exactly 3 memberships with the supplied prices', () => {
+test('duplicate display names keep separate stable slugs', () => {
+  const duplicates = ['Hair Analysis', 'Scalp Massage', 'Nail Trimming']
+    .flatMap((name) => officialServices.filter((service) => service.name === name))
+  assert.equal(duplicates.length, 6)
+  assert.equal(new Set(duplicates.map((service) => service.slug)).size, 6)
+})
+
+test('the three existing lifestyle memberships are retained', () => {
   assert.equal(memberships.length, 3)
-  const bySlug = new Map(memberships.map((m) => [m.slug, m]))
+  const bySlug = new Map(memberships.map((membership) => [membership.slug, membership]))
   assert.equal(bySlug.get('the-reset').monthlyPrice, 250000)
   assert.equal(bySlug.get('the-ritual').monthlyPrice, 480000)
   assert.equal(bySlug.get('the-sanctuary').monthlyPrice, 850000)

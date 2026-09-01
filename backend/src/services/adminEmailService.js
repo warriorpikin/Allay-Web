@@ -59,13 +59,7 @@ function dedupeRecipients(recipients) {
   return { recipients: [...seen.values()], invalid }
 }
 
-/**
- * "Users" = customers who created a password-protected account (mirrors the
- * WHERE clause already used by adminUserController.js). "Customers" (people
- * with a completed booking but no account) are intentionally out of scope —
- * the spec's audience options are users and waitlist members only.
- */
-export async function resolveAudience({ audienceType, selectedUserIds = [], selectedWaitlistIds = [], manualEmails = '' }) {
+export async function resolveAudience({ audienceType, selectedUserIds = [], selectedWaitlistIds = [], selectedCustomerIds = [], manualEmails = '' }) {
   switch (audienceType) {
     case 'all_users': {
       const result = await query(`SELECT id, full_name AS name, email FROM customers WHERE password_hash IS NOT NULL`)
@@ -74,6 +68,18 @@ export async function resolveAudience({ audienceType, selectedUserIds = [], sele
     case 'all_waitlist': {
       const result = await query(`SELECT id, full_name AS name, email FROM waitlist_entries WHERE status = 'active'`)
       return dedupeRecipients(result.rows.map((row) => ({ email: row.email, name: row.name, waitlistId: row.id })))
+    }
+    case 'all_booked_customers': {
+      const result = await query(`
+        SELECT c.id, c.full_name AS name, c.email
+        FROM customers c
+        WHERE EXISTS (
+          SELECT 1 FROM bookings b
+          WHERE b.customer_id = c.id AND b.status IN ('confirmed', 'completed', 'no_show')
+        )
+        ORDER BY c.created_at DESC
+      `)
+      return dedupeRecipients(result.rows.map((row) => ({ email: row.email, name: row.name, userId: row.id })))
     }
     case 'selected_users': {
       if (!selectedUserIds.length) return { recipients: [], invalid: [] }
@@ -84,6 +90,19 @@ export async function resolveAudience({ audienceType, selectedUserIds = [], sele
       if (!selectedWaitlistIds.length) return { recipients: [], invalid: [] }
       const result = await query(`SELECT id, full_name AS name, email FROM waitlist_entries WHERE id = ANY($1::uuid[])`, [selectedWaitlistIds])
       return dedupeRecipients(result.rows.map((row) => ({ email: row.email, name: row.name, waitlistId: row.id })))
+    }
+    case 'selected_booked_customers': {
+      if (!selectedCustomerIds.length) return { recipients: [], invalid: [] }
+      const result = await query(`
+        SELECT c.id, c.full_name AS name, c.email
+        FROM customers c
+        WHERE c.id = ANY($1::uuid[])
+          AND EXISTS (
+            SELECT 1 FROM bookings b
+            WHERE b.customer_id = c.id AND b.status IN ('confirmed', 'completed', 'no_show')
+          )
+      `, [selectedCustomerIds])
+      return dedupeRecipients(result.rows.map((row) => ({ email: row.email, name: row.name, userId: row.id })))
     }
     case 'manual': {
       return dedupeRecipients(parseManualRecipients(manualEmails).map((email) => ({ email, name: '' })))
@@ -106,6 +125,20 @@ export async function searchRecipients({ type, search = '', limit = 20 }) {
        FROM waitlist_entries
        WHERE $1 = '' OR LOWER(full_name) LIKE $2 OR LOWER(email) LIKE $2
        ORDER BY created_at DESC LIMIT $3`,
+      [trimmedSearch, searchValue, safeLimit],
+    )
+    return result.rows
+  }
+  if (type === 'booked_customers') {
+    const result = await query(
+      `SELECT c.id, c.full_name AS name, c.email
+       FROM customers c
+       WHERE EXISTS (
+         SELECT 1 FROM bookings b
+         WHERE b.customer_id = c.id AND b.status IN ('confirmed', 'completed', 'no_show')
+       )
+       AND ($1 = '' OR LOWER(c.full_name) LIKE $2 OR LOWER(c.email) LIKE $2 OR c.phone LIKE $2)
+       ORDER BY c.created_at DESC LIMIT $3`,
       [trimmedSearch, searchValue, safeLimit],
     )
     return result.rows

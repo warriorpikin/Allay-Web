@@ -1,7 +1,8 @@
-import { CalendarDays, Clock3 } from 'lucide-react'
+import { CalendarDays, Clock3, MessageCircle } from 'lucide-react'
 import Button from '../common/Button'
 import { calculateBookingTotal } from '../../utils/calculateBookingTotal'
 import { formatCurrency } from '../../utils/formatCurrency'
+import { formatServicePrice } from '../../utils/formatServicePrice'
 
 function missingReason({ services, date, time, customer }) {
   if (!services.length) return 'Choose at least one service.'
@@ -25,13 +26,16 @@ export default function BookingSummary({
 }) {
   const totals = calculateBookingTotal(services, discount)
   const reason = missingReason({ services, date, time, customer })
+  const estimated = services.some((service) => service.priceIsFrom
+    || (service.priceFrom != null && service.priceTo != null && Number(service.priceTo) > Number(service.priceFrom))
+    || (Array.isArray(service.priceOptions) && service.priceOptions.length > 1))
 
   return <aside className="booking-summary">
     <span className="eyebrow">Booking summary</span>
     {services.length ? <div className="booking-summary__services">
       {services.map((service) => <div key={service.id || service.slug}>
-        <span><strong>{service.name}</strong><small>{service.durationMinutes} mins / {service.category}</small></span>
-        <b>{formatCurrency(service.price)}</b>
+        <span><strong>{service.name}</strong><small>{service.durationLabel || service.category}</small></span>
+        <b>{formatServicePrice(service)}</b>
       </div>)}
     </div> : <p className="booking-summary__empty">Choose one or more services to begin your appointment.</p>}
 
@@ -56,10 +60,10 @@ export default function BookingSummary({
     <dl>
       <div><dt>Subtotal</dt><dd>{formatCurrency(totals.subtotal)}</dd></div>
       <div><dt>Discount</dt><dd>{totals.discount ? `-${formatCurrency(totals.discount)}` : '-'}</dd></div>
-      <div className="booking-summary__total"><dt>Total</dt><dd>{formatCurrency(totals.total)}</dd></div>
+      <div className="booking-summary__total"><dt>{estimated ? 'Estimated total' : 'Total'}</dt><dd>{formatCurrency(totals.total)}</dd></div>
     </dl>
     {reason && <p className="booking-summary__reason" aria-live="polite">{reason}</p>}
-    <Button type="submit" size="lg" loading={loading} disabled={Boolean(reason)}>Confirm booking request</Button>
-    <small>Your appointment request will be reviewed and confirmed by Allay House.</small>
+    <Button type="submit" size="lg" loading={loading} disabled={Boolean(reason)}><MessageCircle size={17} /> Save request & continue on WhatsApp</Button>
+    <small>No online payment is taken here. Allay House will review the request, confirm the final price, and send payment instructions on WhatsApp.</small>
   </aside>
 }

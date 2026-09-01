@@ -80,6 +80,8 @@ const schema = z.object({
   WAITLIST_LAUNCH_DISCOUNT_TYPE: z.enum(['percent', 'fixed']).optional().default('percent'),
   WAITLIST_LAUNCH_DISCOUNT_VALUE: z.coerce.number().optional().default(15),
   UPLOAD_STORAGE_DRIVER: z.enum(['cloudinary']).optional().default('cloudinary'),
+  ALLAY_WHATSAPP_NUMBER: optionalEnvString,
+  ALLAY_WHATSAPP_SHORT_LINK: envString(z.string().url()).default('https://wa.me/message/Z4T6TZPX5LP1'),
 
   // Outgoing-email footer/reply configuration. EMAIL_DEFAULT_REPLY_TO and
   // PUBLIC_SITE_URL intentionally fall back to the pre-existing RESEND_REPLY_TO

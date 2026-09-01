@@ -33,7 +33,8 @@ function stackPosition(diff) {
 
 function slideHref(slide, isLive) {
   const primaryService = slide.services?.[0]
-  return isLive ? `/book?service=${primaryService?.slug || ''}` : `/waitlist?category=${slide.slug}`
+  if (!isLive) return `/waitlist?category=${slide.slug}`
+  return primaryService?.slug ? `/book?service=${primaryService.slug}` : `/services/category/${slide.slug}`
 }
 
 export default function ServiceHeroCarousel({ slides, isLive }) {
@@ -84,7 +85,7 @@ export default function ServiceHeroCarousel({ slides, isLive }) {
         const position = stackPosition(diff)
         const Icon = slide.icon
         const image = <ImagePlaceholder
-          src={getCategoryImage(slide.slug)}
+          src={isActive || isNeighbour ? getCategoryImage(slide.slug) : ''}
           alt={`${slide.name} at Allay House`}
           variant="rounded"
           width="640"

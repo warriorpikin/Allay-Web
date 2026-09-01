@@ -40,7 +40,7 @@ function servicesFromQuery(services, searchParams) {
 
   if (!categoryToken) return []
   const acceptedCategories = new Set([categoryToken, ...(categoryAliases[categoryToken] || [])])
-  return services.filter((service) => acceptedCategories.has(normalizeToken(service.category || '')))
+  return services.filter((service) => acceptedCategories.has(normalizeToken(service.categorySlug || service.category || '')))
 }
 
 function serviceKeys(service = {}) {
@@ -129,7 +129,7 @@ export default function Waitlist() {
   const backgroundStyle = { '--waitlist-page-image': `url(${imagePaths.waitlist.hero})` }
 
   return <main className="waitlist-page" style={backgroundStyle}>
-    <Seo title="Join the Allay House Waitlist | Beauty & Wellness in Lagos" description="Join the private Allay House waitlist for early access and launch offers on beauty, wellness, and movement services in Lagos." path="/waitlist" />
+    <Seo title="Join the Allay House Waitlist | Beauty & Wellness in Lagos" description="Join the private Allay House waitlist for early access and launch offers on beauty, wellness, and movement services in Lagos." path="/waitlist" preloadImage={imagePaths.waitlist.hero} />
     <WaitlistHeader returnPath={returnPath} returnLabel={returnLabel} />
     {!siteModeLoading && !waitlistEnabled
       ? <section className="waitlist-success"><span><Check /></span><small className="eyebrow">Waitlist closed</small><h1>Our private waitlist is currently closed.</h1><p>Please watch out for future openings.</p><Button to="/">Return to Allay House</Button></section>

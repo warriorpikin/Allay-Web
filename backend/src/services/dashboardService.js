@@ -25,7 +25,9 @@ export async function getDashboardSummary() {
       SELECT
         (SELECT count(*) FROM waitlist_entries)::int AS waitlist_total,
         (SELECT count(*) FROM customers)::int AS customer_total,
-        (SELECT count(*) FROM services WHERE is_active = TRUE)::int AS active_services
+        (SELECT count(*) FROM services WHERE is_active = TRUE)::int AS active_services,
+        (SELECT COALESCE(SUM(amount_paid), 0) FROM bookings WHERE status <> 'cancelled')::numeric AS amount_paid_total,
+        (SELECT COALESCE(SUM(GREATEST(total_amount - amount_paid, 0)), 0) FROM bookings WHERE status <> 'cancelled')::numeric AS outstanding_total
     `),
     query(`
       SELECT id, booking_reference AS "bookingReference", customer_name AS "customerName", status,
@@ -42,31 +44,10 @@ export async function getDashboardSummary() {
       ORDER BY count DESC
       LIMIT 5
     `),
-    query("SELECT key, value FROM settings WHERE key IN ('launch', 'payment')"),
+    query("SELECT key, value FROM settings WHERE key = 'launch'"),
   ])
 
   const settingsByKey = Object.fromEntries(settingsResult.rows.map((row) => [row.key, row.value]))
-  const paymentSetting = settingsByKey.payment
-  const revenueTrackingActive = Boolean(paymentSetting?.online_enabled) && paymentSetting?.gateway && paymentSetting.gateway !== 'none'
-
-  let revenue = {
-    trackingActive: false,
-    message: 'Revenue tracking will activate once payment confirmation is connected.',
-  }
-
-  if (revenueTrackingActive) {
-    const revenueResult = await query(`
-      SELECT
-        COALESCE(SUM(total_amount) FILTER (WHERE payment_status = 'paid'), 0)::numeric AS confirmed,
-        COALESCE(SUM(total_amount) FILTER (WHERE payment_status = 'unpaid'), 0)::numeric AS unpaid
-      FROM bookings WHERE status <> 'cancelled'
-    `)
-    revenue = {
-      trackingActive: true,
-      confirmedTotal: Number(revenueResult.rows[0].confirmed),
-      unpaidTotal: Number(revenueResult.rows[0].unpaid),
-    }
-  }
 
   const counts = otherCounts.rows[0]
   return {
@@ -85,6 +66,11 @@ export async function getDashboardSummary() {
     siteMode: settingsByKey.launch?.mode === 'live' ? 'live' : 'prelaunch',
     recentBookings: recentBookingsResult.rows,
     popularServices: popularServicesResult.rows,
-    revenue,
+    revenue: {
+      trackingActive: true,
+      source: 'manual_booking_confirmation',
+      confirmedTotal: Number(counts.amount_paid_total || 0),
+      unpaidTotal: Number(counts.outstanding_total || 0),
+    },
   }
 }

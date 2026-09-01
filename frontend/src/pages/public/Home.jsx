@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Clock3, RefreshCcw } from 'lucide-react'
+import { ArrowRight, CalendarDays, Clock3 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ServiceHeroCarousel from '../../components/home/ServiceHeroCarousel'
@@ -8,7 +8,7 @@ import SectionHeader from '../../components/common/SectionHeader'
 import Seo from '../../components/common/Seo'
 import StarRating from '../../components/common/StarRating'
 import { getCategoryImage } from '../../data/allayImages'
-import { buildDivisionSlides } from '../../data/serviceDivisions'
+import { buildDivisionSlides, initialDivisionSlides } from '../../data/serviceDivisions'
 import { useSiteMode } from '../../hooks/useSiteMode'
 import { getServices, getTestimonials } from '../../services/servicesApi'
 import { imagePaths } from '../../utils/imagePaths'
@@ -34,33 +34,6 @@ function TestimonialAvatar({ item }) {
   </div>
 }
 
-// Matches the hero-stack visual column's footprint exactly, with no legacy
-// copy or CTAs, so nothing resembling the old hero is ever visible while
-// services load. The left text column is static (never loading-gated), so it
-// carries no flash risk and is rendered unconditionally in the hero markup.
-function HeroSkeleton() {
-  return <div className="hero-stack hero-stack--skeleton" aria-hidden="true">
-    <div className="hero-stack__track">
-      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--side hero-stack__skeleton-card--left" />
-      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--active" />
-      <div className="hero-stack__skeleton-card hero-stack__skeleton-card--side hero-stack__skeleton-card--right" />
-    </div>
-  </div>
-}
-
-function HeroEmpty() {
-  return <div className="hero-stack hero-stack--message">
-    <p>Allay House — considered treatments and everyday rituals under one calm roof.</p>
-  </div>
-}
-
-function HeroError({ onRetry }) {
-  return <div className="hero-stack hero-stack--message">
-    <p>We couldn&apos;t load services just now.</p>
-    <Button type="button" variant="outline" onClick={onRetry}><RefreshCcw size={15} /> Retry</Button>
-  </div>
-}
-
 // Module-level (not component state) so it survives a Home unmount/remount —
 // e.g. visiting About then coming back to "/". Without this, every return
 // visit re-ran the full loading skeleton even though we already had good
@@ -72,7 +45,6 @@ export default function Home() {
   const { isLive } = useSiteMode()
   const [testimonials, setTestimonials] = useState(cachedTestimonials || fallbackTestimonials)
   const [services, setServices] = useState(cachedServices || [])
-  const [servicesState, setServicesState] = useState(cachedServices ? 'loaded' : 'loading')
 
   useEffect(() => {
     getTestimonials()
@@ -90,34 +62,28 @@ export default function Home() {
   }, [])
 
   const loadServices = useCallback(() => {
-    // Only show the skeleton when we have nothing to fall back on. A repeat
-    // visit or a background refresh keeps showing the last-good carousel
-    // while the new request is in flight.
-    if (!cachedServices) setServicesState('loading')
     getServices()
       .then((data) => {
         const nextServices = data.services || []
         cachedServices = nextServices
         setServices(nextServices)
-        setServicesState('loaded')
       })
-      .catch(() => {
-        // A failed background refresh should not blank out a hero that was
-        // already showing real data — only surface the retry panel when we
-        // truly have nothing to display.
-        if (!cachedServices) setServicesState('error')
-      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => { loadServices() }, [loadServices])
 
-  const divisionSlides = useMemo(() => buildDivisionSlides(services), [services])
+  const divisionSlides = useMemo(() => {
+    const liveSlides = buildDivisionSlides(services)
+    return liveSlides.length ? liveSlides : initialDivisionSlides
+  }, [services])
 
   return <>
     <Seo
       title="Allay House | Beauty, Wellness & Movement in Lagos"
-      description="Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, lashes, waxing, and reformer Pilates."
+      description="Allay House is a refined sanctuary for beauty, wellness, and movement in Lagos, Nigeria — head spa, massage, hammam, facials, nails, hair, and reformer Pilates."
       path="/"
+      preloadImage={imagePaths.categories.spa}
       jsonLd={buildLocalBusinessJsonLd()}
     />
     <section className="home-hero">
@@ -130,11 +96,7 @@ export default function Home() {
         </div>
       </div>
       <div className="home-hero__visual">
-        {servicesState === 'loading' && <HeroSkeleton />}
-        {servicesState === 'error' && <HeroError onRetry={loadServices} />}
-        {servicesState === 'loaded' && (divisionSlides.length
-          ? <ServiceHeroCarousel slides={divisionSlides} isLive={isLive} />
-          : <HeroEmpty />)}
+        <ServiceHeroCarousel slides={divisionSlides} isLive={isLive} />
       </div>
     </section>
 

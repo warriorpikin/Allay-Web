@@ -1,4 +1,4 @@
-import { BarChart3, CalendarCheck, Clock, CreditCard, Crown, LayoutDashboard, Mail, Megaphone, Settings, Sparkles, Star, UserRound, Users, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, Clock, Crown, LayoutDashboard, Mail, Megaphone, Settings, Sparkles, Star, UserRound, Users, X } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { adminNavigationLinks } from '../../data/navigationLinks'
 import Brand from '../common/Brand'
@@ -15,7 +15,6 @@ const iconsByPath = {
   '/allay-admin/testimonials': Star,
   '/allay-admin/promotions': Megaphone,
   '/allay-admin/waitlist': Users,
-  '/allay-admin/payments': CreditCard,
   '/allay-admin/emails': Mail,
   '/allay-admin/email-logs': Mail,
   '/allay-admin/settings': Settings,
