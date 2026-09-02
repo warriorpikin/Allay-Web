@@ -63,7 +63,7 @@ export default function BookingSummary({
       <div className="booking-summary__total"><dt>{estimated ? 'Estimated total' : 'Total'}</dt><dd>{formatCurrency(totals.total)}</dd></div>
     </dl>
     {reason && <p className="booking-summary__reason" aria-live="polite">{reason}</p>}
-    <Button type="submit" size="lg" loading={loading} disabled={Boolean(reason)}><MessageCircle size={17} /> Save request & continue on WhatsApp</Button>
+    <Button type="submit" size="lg" loading={loading} disabled={Boolean(reason)}><MessageCircle size={17} /> Complete booking</Button>
     <small>No online payment is taken here. Allay House will review the request, confirm the final price, and send payment instructions on WhatsApp.</small>
   </aside>
 }

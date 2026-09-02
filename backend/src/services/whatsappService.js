@@ -71,16 +71,13 @@ export function buildWhatsAppMessage({ booking, services = [] }) {
 
 export function buildWhatsAppHandoff({ booking, services = [] }) {
   const message = buildWhatsAppMessage({ booking, services })
-  const number = String(env.ALLAY_WHATSAPP_NUMBER || '').replace(/\D/g, '')
-  const hasDirectNumber = number.length >= 10
+  const number = String(env.ALLAY_WHATSAPP_NUMBER || '2347012119202').replace(/\D/g, '')
 
   return {
     provider: 'whatsapp',
-    url: hasDirectNumber
-      ? `https://wa.me/${number}?text=${encodeURIComponent(message)}`
-      : env.ALLAY_WHATSAPP_SHORT_LINK,
+    url: `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
     message,
-    prefilled: hasDirectNumber,
-    requiresCopy: !hasDirectNumber,
+    prefilled: true,
+    requiresCopy: false,
   }
 }

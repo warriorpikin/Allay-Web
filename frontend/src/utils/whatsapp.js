@@ -1,4 +1,4 @@
-export const ALLAY_WHATSAPP_SHORT_LINK = import.meta.env.VITE_WHATSAPP_SHORT_LINK || 'https://wa.me/message/Z4T6TZPX5LP1'
+export const ALLAY_WHATSAPP_NUMBER = String(import.meta.env.VITE_WHATSAPP_NUMBER || '2347012119202').replace(/\D/g, '')
 
 export function membershipWhatsAppMessage(membership) {
   const price = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(membership?.monthlyPrice || 0))
@@ -33,16 +33,12 @@ export async function copyText(text) {
 }
 
 export function clientWhatsAppHandoff(message) {
-  const number = String(import.meta.env.VITE_WHATSAPP_NUMBER || '').replace(/\D/g, '')
-  if (number.length >= 10) {
-    return {
-      url: `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
-      message,
-      prefilled: true,
-      requiresCopy: false,
-    }
+  return {
+    url: `https://wa.me/${ALLAY_WHATSAPP_NUMBER}?text=${encodeURIComponent(message || '')}`,
+    message,
+    prefilled: true,
+    requiresCopy: false,
   }
-  return { url: ALLAY_WHATSAPP_SHORT_LINK, message, prefilled: false, requiresCopy: true }
 }
 
 export async function prepareWhatsAppHandoff(handoff) {

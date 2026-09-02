@@ -104,11 +104,15 @@ export async function sendCouponEmailsToWaitlist({ ids = [] } = {}) {
 
   const results = []
   for (const entry of result.rows) {
-    const emailResult = await sendLaunchCouponEmail({ email: entry.email, relatedWaitlistId: entry.id })
-    if (emailResult.sent) {
-      await query('UPDATE waitlist_entries SET launch_email_sent = TRUE, launch_email_sent_at = NOW() WHERE id = $1', [entry.id])
+    try {
+      const emailResult = await sendLaunchCouponEmail({ email: entry.email, relatedWaitlistId: entry.id })
+      if (emailResult.sent) {
+        await query('UPDATE waitlist_entries SET launch_email_sent = TRUE, launch_email_sent_at = NOW() WHERE id = $1', [entry.id])
+      }
+      results.push({ id: entry.id, email: entry.email, sent: emailResult.sent, error: emailResult.error || null })
+    } catch (error) {
+      results.push({ id: entry.id, email: entry.email, sent: false, error: error.message || 'Coupon email failed.' })
     }
-    results.push({ id: entry.id, email: entry.email, sent: emailResult.sent })
   }
 
   return {

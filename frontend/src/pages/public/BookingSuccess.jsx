@@ -76,7 +76,7 @@ export default function BookingSuccess() {
     </div>
 
     <div className="success-page__actions">
-      <Button type="button" loading={openingWhatsApp} onClick={continueOnWhatsApp}><MessageCircle size={17} /> Continue on WhatsApp</Button>
+      <Button type="button" loading={openingWhatsApp} onClick={continueOnWhatsApp}><MessageCircle size={17} /> Complete booking</Button>
       <Button to="/book" variant="outline">Book another service</Button>
       <Button type="button" variant="ghost" onClick={() => window.print()}><Printer size={15} /> Print</Button>
     </div>

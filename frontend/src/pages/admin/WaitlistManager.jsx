@@ -42,7 +42,7 @@ export default function WaitlistManager() {
     const loadingToast = toast.loading('Sending coupon emails...')
     sendWaitlistCoupons()
       .then((result) => toast.success(`Coupon run complete: ${result.sent} sent, ${result.skippedOrFailed} skipped/failed.`, { id: loadingToast }))
-      .catch(() => toast.error('Could not send coupon emails.', { id: loadingToast }))
+      .catch((error) => toast.error(error.response?.data?.message || 'Could not send coupon emails.', { id: loadingToast }))
   }
 
   return <>
