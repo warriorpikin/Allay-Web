@@ -1,4 +1,6 @@
-export const ALLAY_WHATSAPP_NUMBER = String(import.meta.env.VITE_WHATSAPP_NUMBER || '2347012119202').replace(/\D/g, '')
+// The business number supplied by Allay House. Keep click-to-chat independent
+// of stale deployment environment variables and WhatsApp business short links.
+export const ALLAY_WHATSAPP_NUMBER = '2347012119202'
 
 export function membershipWhatsAppMessage(membership) {
   const price = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Number(membership?.monthlyPrice || 0))
@@ -19,23 +21,29 @@ export async function copyText(text) {
     await navigator.clipboard.writeText(text)
     return true
   } catch {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.setAttribute('readonly', '')
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    const copied = document.execCommand('copy')
-    textarea.remove()
-    return copied
+    let textarea
+    try {
+      textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      return Boolean(document.execCommand('copy'))
+    } catch {
+      return false
+    } finally {
+      textarea?.remove()
+    }
   }
 }
 
 export function clientWhatsAppHandoff(message) {
+  const text = String(message || '')
   return {
-    url: `https://wa.me/${ALLAY_WHATSAPP_NUMBER}?text=${encodeURIComponent(message || '')}`,
-    message,
+    url: `https://wa.me/${ALLAY_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`,
+    message: text,
     prefilled: true,
     requiresCopy: false,
   }
