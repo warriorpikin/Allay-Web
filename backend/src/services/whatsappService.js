@@ -1,10 +1,8 @@
-import { env } from '../config/env.js'
+const ALLAY_WHATSAPP_NUMBER = '2347012119202'
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
+    style: 'currency', currency: 'NGN', maximumFractionDigits: 0,
   }).format(Number(value || 0))
 }
 
@@ -17,13 +15,11 @@ function formatDate(value) {
 
 function servicePriceNote(service) {
   const options = Array.isArray(service.price_options) ? service.price_options.map(Number).filter(Number.isFinite) : []
-  if (options.length > 1) return `${options.map(formatCurrency).join(' / ')} options`
-
-  const from = Number(service.price_from)
-  const to = Number(service.price_to)
-  if (Number.isFinite(from) && Number.isFinite(to) && to > from) return `${formatCurrency(from)}–${formatCurrency(to)}`
-
-  const label = service.price_is_from ? `From ${formatCurrency(service.price)}` : formatCurrency(service.price)
+  let label = service.price_is_from ? `From ${formatCurrency(service.price)}` : formatCurrency(service.price)
+  if (options.length > 1) label = `${options.map(formatCurrency).join(' / ')} options`
+  else if (service.price_from != null && service.price_to != null && Number(service.price_to) > Number(service.price_from)) {
+    label = `${formatCurrency(service.price_from)}–${formatCurrency(service.price_to)}`
+  }
   return service.price_unit_label ? `${label} ${service.price_unit_label}` : label
 }
 
@@ -38,12 +34,15 @@ export function hasVariableBookingPrice(services = []) {
 
 export function buildWhatsAppMessage({ booking, services = [] }) {
   const variablePrice = hasVariableBookingPrice(services)
-  const serviceLines = services.map((service, index) => `${index + 1}. ${service.name} — ${servicePriceNote(service)}`)
+  const serviceLines = services.map((service, index) => {
+    const duration = service.duration_label || `${Number(service.duration_minutes || 0)} minutes`
+    return `${index + 1}. ${service.name} — ${servicePriceNote(service)} — ${duration}`
+  })
   const lines = [
-    'Hello Allay House, I would like to complete this booking request.',
+    'Hello Allay House, I would like to request a booking and an invoice.',
     '',
     `BOOKING CODE: ${booking.booking_reference}`,
-    'STATUS: Pending manual confirmation',
+    'STATUS: Pending manual confirmation — unpaid',
     '',
     'CUSTOMER',
     `Name: ${booking.customer_name}`,
@@ -52,7 +51,8 @@ export function buildWhatsAppMessage({ booking, services = [] }) {
     '',
     'PREFERRED APPOINTMENT',
     `Date: ${formatDate(booking.appointment_date)}`,
-    `Time: ${String(booking.start_time || '').slice(0, 5)}`,
+    `Time: ${String(booking.start_time || '').slice(0, 5)} WAT (Nigeria)`,
+    `Total duration: ${Number(booking.total_duration_minutes || 0)} minutes`,
     '',
     'SERVICES',
     ...serviceLines,
@@ -60,22 +60,20 @@ export function buildWhatsAppMessage({ booking, services = [] }) {
     'PRICE SUMMARY',
     `Subtotal: ${formatCurrency(booking.subtotal)}`,
     `Discount: ${formatCurrency(booking.discount_amount)}`,
+    ...(booking.discount_code ? [`Discount code: ${booking.discount_code}`] : []),
     `${variablePrice ? 'Estimated total' : 'Total'}: ${formatCurrency(booking.total_amount)}`,
   ]
-
   if (booking.customer_note) lines.push('', `Customer note: ${booking.customer_note}`)
   if (variablePrice) lines.push('', 'Some selected services have “from”, range, or option-based pricing. Please confirm the final total.')
-  lines.push('', 'Please confirm availability, the final price, and payment instructions. Thank you.')
+  lines.push('', 'Please confirm availability and the final amount, then send me an invoice so I can make payment. Thank you.')
   return lines.join('\n')
 }
 
 export function buildWhatsAppHandoff({ booking, services = [] }) {
   const message = buildWhatsAppMessage({ booking, services })
-  const number = String(env.ALLAY_WHATSAPP_NUMBER || '2347012119202').replace(/\D/g, '')
-
   return {
     provider: 'whatsapp',
-    url: `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
+    url: `https://wa.me/${ALLAY_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`,
     message,
     prefilled: true,
     requiresCopy: false,
