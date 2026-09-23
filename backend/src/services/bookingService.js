@@ -6,6 +6,7 @@ import { addMinutesToTime } from '../utils/timeSlots.js'
 import { generateBookingReference } from '../utils/bookingReference.js'
 import { sendBookingEmails } from './emailService.js'
 import { buildWhatsAppHandoff, hasVariableBookingPrice } from './whatsappService.js'
+import { settleBookingNotifications } from '../utils/settleBookingNotifications.js'
 
 function candidateIdentifiers(selectedServices = []) {
   const values = selectedServices.flatMap((service) => [service.id, service.serviceId, service.slug]).filter(Boolean)
@@ -145,14 +146,14 @@ export async function createBookingRequest(payload, { authenticatedCustomerId = 
       )
     }
 
-    const whatsapp = buildWhatsAppHandoff({ booking: booking.rows[0], services })
+    const whatsapp = buildWhatsAppHandoff({ booking: { ...booking.rows[0], appointment_date: payload.appointmentDate }, services })
     const updated = await client.query(
       'UPDATE bookings SET whatsapp_message = $1 WHERE id = $2 RETURNING *',
       [whatsapp.message, booking.rows[0].id],
     )
 
     await client.query('COMMIT')
-    createdBooking = updated.rows[0]
+    createdBooking = { ...updated.rows[0], appointment_date: payload.appointmentDate }
   } catch (error) {
     await client.query('ROLLBACK')
     throw error
@@ -160,7 +161,10 @@ export async function createBookingRequest(payload, { authenticatedCustomerId = 
     client.release()
   }
 
-  const emailStatus = await sendBookingEmails({ booking: createdBooking, services: createdServices })
+  const emailStatus = await settleBookingNotifications(
+    () => sendBookingEmails({ booking: createdBooking, services: createdServices }),
+    { onError: (error) => console.error('[booking] Notification failed after save', { reference: bookingReference, code: error.code || 'EMAIL_ERROR' }) },
+  )
   const whatsapp = buildWhatsAppHandoff({ booking: createdBooking, services: createdServices })
   return {
     booking: createdBooking,
@@ -182,13 +186,20 @@ export async function createBookingRequest(payload, { authenticatedCustomerId = 
         durationMinutes: Number(service.duration_minutes),
         durationLabel: service.duration_label || null,
         price: Number(service.price),
+        priceFrom: service.price_from == null ? null : Number(service.price_from),
+        priceTo: service.price_to == null ? null : Number(service.price_to),
+        priceIsFrom: Boolean(service.price_is_from),
+        priceUnitLabel: service.price_unit_label || null,
+        priceOptions: service.price_options || null,
       })),
-      date: createdBooking.appointment_date,
+      date: payload.appointmentDate,
       time: String(createdBooking.start_time).slice(0, 5),
       totalDurationMinutes,
       subtotal: Number(createdBooking.subtotal),
       discountAmount: Number(createdBooking.discount_amount),
       totalAmount: Number(createdBooking.total_amount),
+      discountCode: createdBooking.discount_code || '',
+      customerNote: createdBooking.customer_note || '',
       priceIsEstimated: hasVariableBookingPrice(services),
       status: createdBooking.status,
       createdAt: createdBooking.created_at,
