@@ -21,9 +21,9 @@ import { createBooking, markWhatsAppHandoff, validateDiscountCode } from '../../
 import { getServices } from '../../services/servicesApi'
 import { calculateBookingTotal } from '../../utils/calculateBookingTotal'
 import { imagePaths } from '../../utils/imagePaths'
-import { prepareWhatsAppHandoff } from '../../utils/whatsapp'
+import { persistBookingConfirmation, recordHandoffWithoutWaiting, submitBookingForWhatsApp } from '../../utils/bookingHandoff'
 
-const fallbackTimes = ['09:00', '10:30', '12:00', '13:30', '15:00'].map((time) => ({ time, available: true, reason: 'available', remainingCapacity: 2 }))
+const fallbackTimes = ['09:00', '10:30', '12:00', '13:30', '15:00'].map((time) => ({ time, available: true, reason: 'unverified', remainingCapacity: null }))
 
 function serviceQuery(services) {
   return services.map((service) => service.id).join(',')
@@ -50,6 +50,10 @@ function replaceWithCurrentServices(selected = [], currentServices = []) {
   }))
 }
 
+function trackSubmission(event, params) {
+  try { trackEvent(event, params) } catch { /* analytics must never block a booking */ }
+}
+
 export default function Booking() {
   const { booking, updateBooking } = useBooking()
   const { isLive, isLoading: siteModeLoading } = useSiteMode()
@@ -69,6 +73,7 @@ export default function Booking() {
   const [loadingDays, setLoadingDays] = useState(false)
   const [loadingTimes, setLoadingTimes] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const submissionInFlight = useRef(false)
   const bookingStarted = useRef(false)
   const trackedDetailsComplete = useRef(false)
   const lastTrackedTime = useRef('')
@@ -179,7 +184,7 @@ export default function Booking() {
       setSuggestions(result.suggestedTimes || [])
       if (!result.available) updateBooking({ time: '' })
     } catch {
-      setNotice({ status: 'available', message: 'This preferred time is selected. Final availability will be checked when you confirm.' })
+      setNotice({ status: 'pending', message: 'Your preferred time is selected, but availability could not be checked. Allay House must confirm it before payment.' })
     }
   }, [booking.date, booking.services, totals.totalDuration, updateBooking])
 
@@ -233,51 +238,47 @@ export default function Booking() {
 
   const submit = async (event) => {
     event.preventDefault()
+    if (submissionInFlight.current) return
     if (!booking.services.length) { toast.error('Choose at least one service.'); return }
     if (!booking.date || !booking.time) { toast.error('Choose a preferred date and time.'); return }
-    trackEvent(ANALYTICS_EVENTS.BOOKING_SUBMIT, { booking_step: 'submit', currency: 'NGN', value: totals.total })
+    if (!booking.customer.fullName.trim() || !booking.customer.email.trim() || !booking.customer.phone.trim()) {
+      toast.error('Enter your name, email and WhatsApp phone number.'); return
+    }
+    submissionInFlight.current = true
     setSubmitting(true)
+    trackSubmission(ANALYTICS_EVENTS.BOOKING_SUBMIT, { booking_step: 'submit', currency: 'NGN', value: totals.total })
     try {
-      const data = await createBooking({
-        customerName: booking.customer.fullName,
-        customerEmail: booking.customer.email,
-        customerPhone: booking.customer.phone,
-        selectedServices: booking.services,
-        appointmentDate: booking.date,
-        preferredTime: booking.time,
-        discountCode: coupon.applied?.code || '',
-        customerNote: booking.note,
-      })
-      const confirmation = {
-        ...(data.confirmation || {}),
-        reference: data.confirmation?.reference || data.bookingReference,
-        whatsapp: data.whatsapp || data.confirmation?.whatsapp,
+      const confirmation = await submitBookingForWhatsApp({ booking, totals, discountCode: coupon.applied?.code || '' }, createBooking)
+      persistBookingConfirmation(confirmation)
+      if (confirmation.saveState === 'saved') {
+        trackSubmission(ANALYTICS_EVENTS.BOOKING_COMPLETE, serviceParams(booking.services[0] || {}, { booking_step: 'complete', currency: 'NGN', value: confirmation.totalAmount, result: 'success' }))
+        toast.success('Your pending request was saved. Opening WhatsApp to request your invoice…')
+      } else {
+        trackSubmission(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'save_unverified', result: 'whatsapp_request' })
+        toast('The website save could not be verified. Continue on WhatsApp so the team can check your request.')
       }
-      sessionStorage.setItem('allay:lastBookingConfirmation', JSON.stringify(confirmation))
-      trackEvent(ANALYTICS_EVENTS.BOOKING_COMPLETE, serviceParams(booking.services[0] || {}, { booking_step: 'complete', currency: 'NGN', value: totals.total, result: 'success' }))
-      toast.success('Your pending booking was saved. Continuing to WhatsApp…')
-      navigate('/booking-success', { state: { confirmation } })
-
+      // Keep a receipt and a real clickable link for browsers that require a
+      // second tap to open WhatsApp. Neither storage nor telemetry is a gate.
+      try { navigate('/booking-success', { state: { confirmation } }) } catch { /* still open the direct link */ }
+      recordHandoffWithoutWaiting(confirmation.reference, markWhatsAppHandoff)
       try {
-        await markWhatsAppHandoff(confirmation.reference).catch(() => null)
-        const handoff = await prepareWhatsAppHandoff(confirmation.whatsapp)
-        if (handoff.copied) toast.success('The complete booking message was copied for WhatsApp.')
         window.location.assign(confirmation.whatsapp.url)
       } catch {
-        toast('Your booking is safe. Tap “Continue on WhatsApp” to finish the request.')
+        toast('Tap “Continue on WhatsApp” on your request summary to send the message.')
       }
     } catch (error) {
       const data = error.response?.data
       if (error.response?.status === 409) {
         setSuggestions(data?.suggestedTimes || [])
         setNotice({ status: 'suggestions', message: data?.message || 'This period has already been booked. Please choose one of the available times below.', suggestions: data?.suggestedTimes || [] })
-        trackEvent(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'availability_conflict', result: 'failed' })
-        toast.error('That time is unavailable.')
+        trackSubmission(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'availability_conflict', result: 'failed' })
+        toast.error('That time is unavailable. Please choose another time.')
       } else {
-        trackEvent(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'request_failed', result: 'failed' })
-        toast.error(data?.message || 'We could not save the booking request yet. Please try again.')
+        trackSubmission(ANALYTICS_EVENTS.BOOKING_ERROR, { booking_step: 'submit', error_type: 'request_failed', result: 'failed' })
+        toast.error(data?.message || 'Please check your booking details and try again.')
       }
     } finally {
+      submissionInFlight.current = false
       setSubmitting(false)
     }
   }
